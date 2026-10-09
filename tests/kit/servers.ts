@@ -6,7 +6,7 @@ import type { On } from 'claude-code'
 import { LMSTUDIO_API_V1_MODELS, LMSTUDIO_V1_MODELS, OLLAMA_VERSION } from '../fixtures'
 
 /** How a fake server answers. `hang` never answers within any timeout rmod allows. */
-export type Mode = 'up' | 'down' | 'hang' | '401' | '403' | '500' | 'garbage' | 'native404' | 'native404down' | 'policy' | 'empty'
+export type Mode = 'up' | 'down' | 'hang' | '401' | '403' | '500' | 'garbage' | 'native404' | 'native404down' | 'native404auth' | 'policy' | 'empty' | 'slow' | '404'
 
 export type Fetched = { url: string; authorization: string | undefined }
 
@@ -42,6 +42,15 @@ const answer = async (clock: MockClock, mode: Mode, url: string, isOllama: boole
       return url.endsWith('/api/v1/models') ? reply(404, 'Not Found') : reply(200, LMSTUDIO_V1_MODELS)
     case 'native404down':
       return url.endsWith('/api/v1/models') ? reply(404, 'Not Found') : refused(url)
+    case 'native404auth':
+      // An older LM Studio (no native API) with "require API token" on.
+      if (url.endsWith('/api/v1/models')) return reply(404, 'Not Found')
+      return authorization === 'Bearer fake-test-token-not-real-0000' ? reply(200, LMSTUDIO_V1_MODELS) : reply(401, '')
+    case 'slow':
+      await clock.sleep(37)
+      return reply(200, isOllama ? OLLAMA_VERSION : LMSTUDIO_API_V1_MODELS)
+    case '404':
+      return reply(404, 'Not Found')
     case 'policy':
       return { deny: `$.http.fetch(${url}) refused by the organization's web-fetch policy` }
     case 'empty':

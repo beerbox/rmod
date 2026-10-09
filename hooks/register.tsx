@@ -1,13 +1,18 @@
 import type { EngineInterface, Register, Timer } from 'claude-code'
 import { atom, read, update } from 'claude-code'
 
+import { bandLine } from './lib/band'
 import { defaultConfig, parseConfig } from './lib/config'
 import type { Config } from './lib/config'
 import { applyProbe, initialStatus, lmstudioProbe, ollamaProbe } from './lib/probe'
 import type { LmStudioStep, ProbeOutcome, ProbeResult } from './lib/probe'
+import { asStats, emptyStats, summarize } from './lib/stats'
 import { statusText } from './lib/status-text'
+import { freshMemory, transitionToast } from './lib/transitions'
+import type { ToastMemory } from './lib/transitions'
 import { buildUrl } from './lib/url-guard'
-import type { BackendStatus, LmStudioEndpoint } from '../types'
+import { bandTree } from './ui/band'
+import type { BackendStatus, Health, LmStudioEndpoint } from '../types'
 
 // Static analysis lets `$` reach only functions declared at the top of this file, and lets `read` /
 // `update` take only atoms defined in this file. So the work and the atoms live here, and the
@@ -15,6 +20,8 @@ import type { BackendStatus, LmStudioEndpoint } from '../types'
 
 const ollamaStatus = atom({ plugin: 'rmod', key: 'ollama' } as const, initialStatus())
 const lmstudioStatus = atom({ plugin: 'rmod', key: 'lmstudio' } as const, initialStatus())
+const statsOllama = atom({ plugin: 'rmod', key: 'statsOllama' } as const, emptyStats())
+const statsLmstudio = atom({ plugin: 'rmod', key: 'statsLmstudio' } as const, emptyStats())
 /** Which LM Studio endpoint answered this session (FR-2.2); null until known. */
 const lmstudioEndpoint = atom({ plugin: 'rmod', key: 'lmstudioEndpoint' } as const, null)
 
@@ -34,6 +41,15 @@ type Ctx = {
   inflight: { ollama: number; lmstudio: number }
   /** FR-2.3: the token goes out only after a token-less probe to lmstudioUrl asked for auth. */
   lmAskedForAuth: boolean
+  /** FR-3.4: what the person was last told about each backend. */
+  toasts: { ollama: ToastMemory; lmstudio: ToastMemory }
+}
+
+/** Shows the toast a probe result calls for, if any (FR-3.4). */
+const announce = ($: EngineInterface, ctx: Ctx, backend: Backend, health: Health): void => {
+  const r = transitionToast(backend === 'ollama' ? 'Ollama' : 'LM Studio', ctx.toasts[backend], health)
+  ctx.toasts[backend] = r.memory
+  if (r.toast !== undefined) $.ui.toast(r.toast)
 }
 
 /**
@@ -73,6 +89,7 @@ const probeOllama = async ($: EngineInterface, ctx: Ctx): Promise<void> => {
   const r: ProbeResult = url === undefined ? { health: 'degraded', error: 'config' } : ollamaProbe(await probe($, ctx, 'ollama', url))
   const at = await $.clock.now()
   await update($, ollamaStatus, s => applyProbe(s, r, at))
+  announce($, ctx, 'ollama', r.health)
 }
 
 const askLmStudio = async ($: EngineInterface, ctx: Ctx, endpoint: Exclude<LmStudioEndpoint, null>, withToken: boolean): Promise<LmStudioStep> => {
@@ -89,14 +106,18 @@ const probeLmStudio = async ($: EngineInterface, ctx: Ctx): Promise<void> => {
   if ((await read($, lmstudioStatus)).checkedAt === undefined) ctx.lmAskedForAuth = false
   const remembered = await read($, lmstudioEndpoint)
   let endpoint = remembered ?? 'native'
+  // At most two requests per tick (NFR-3): a fallback and a token retry in the same tick would be three.
+  let requests = 1
   let step = await askLmStudio($, ctx, endpoint, ctx.lmAskedForAuth)
   if (step.next === 'fallback') {
     endpoint = 'openai'
+    requests += 1
     step = await askLmStudio($, ctx, endpoint, ctx.lmAskedForAuth)
   }
   if (step.next === 'retryWithToken' && ctx.token !== undefined) {
     ctx.lmAskedForAuth = true
-    step = await askLmStudio($, ctx, endpoint, true)
+    // After a fallback, the endpoint is remembered below and the next tick asks with the token.
+    if (requests < 2) step = await askLmStudio($, ctx, endpoint, true)
   }
   if ((step.result.health === 'up' || step.result.health === 'auth') && endpoint !== remembered) {
     const found = endpoint
@@ -107,6 +128,7 @@ const probeLmStudio = async ($: EngineInterface, ctx: Ctx): Promise<void> => {
   const at = await $.clock.now()
   const r = step.result
   await update($, lmstudioStatus, s => applyProbe(s, r, at))
+  announce($, ctx, 'lmstudio', r.health)
 }
 
 /** Probes one backend unless its previous probe is still pending. rmod's own failures never escape. */
@@ -178,6 +200,7 @@ export const register: Register = (on, options) => {
     pending: { ollama: false, lmstudio: false },
     inflight: { ollama: 0, lmstudio: 0 },
     lmAskedForAuth: false,
+    toasts: { ollama: freshMemory(), lmstudio: freshMemory() },
   }
   try {
     const parsed = parseConfig(options, undefined)
@@ -213,16 +236,37 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // FR-3.1: the band above the prompt. Reads only; it never fetches or writes (NFR-3).
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    try {
+      if (e.props.hasSurvey || !ctx.config.showBand) return next(e)
+      const input = {
+        // On/off is applied as it is read, so a disabled backend shows off at once after /clear.
+        ollama: onOff(await read($, ollamaStatus), ctx.config.enableOllama),
+        lmstudio: onOff(await read($, lmstudioStatus), ctx.config.enableLmStudio),
+        statsOllama: asStats(await read($, statsOllama)),
+        statsLmstudio: asStats(await read($, statsLmstudio)),
+      }
+      // Nothing to watch and nothing counted: leave the row to the engine.
+      if (!ctx.config.enableOllama && !ctx.config.enableLmStudio && summarize(input.statsOllama, input.statsLmstudio).total === 0) return next(e)
+      return bandTree($.ui.resolve(e), bandLine(input, e.props.bodyColumns))
+    } catch {
+      return next(e)
+    }
+  })
+
   on('command.run', { command: 'rmod-status' }, async $ => {
     try {
       return {
         text: statusText({
-          ollama: await read($, ollamaStatus),
-          lmstudio: await read($, lmstudioStatus),
+          ollama: onOff(await read($, ollamaStatus), ctx.config.enableOllama),
+          lmstudio: onOff(await read($, lmstudioStatus), ctx.config.enableLmStudio),
           ollamaUrl: ctx.config.ollamaUrl,
           lmstudioUrl: ctx.config.lmstudioUrl,
           ollamaExposed: ctx.config.ollamaExposed,
           lmstudioEndpoint: await read($, lmstudioEndpoint),
+          statsOllama: asStats(await read($, statsOllama)),
+          statsLmstudio: asStats(await read($, statsLmstudio)),
         }),
       }
     } catch {

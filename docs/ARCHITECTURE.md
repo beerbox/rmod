@@ -18,7 +18,9 @@ hooks/lib/parse-lmstudio.ts  parseV1Models / parseOpenAiModels                  
 hooks/lib/shell.ts           simpleCommands / programOf / inlineScript: quote-aware Bash reader [pure]
 hooks/lib/attribution.ts     targetsOf(cfg), classifyToolCall(tool, e, targets, re), backendForModelStep(baseUrl, model, targets, inv) [pure]
 hooks/lib/stats.ts           ring buffer, avg/p50/p95, tok/s; immutable updates          [pure]
-hooks/ui/band.tsx            AbovePrompt tree (full + compact)                            [pure given data + elements]
+hooks/lib/band.ts            bandLine(input, bodyColumns) → segments (full, trimmed, compact <60) [pure]
+hooks/lib/transitions.ts     transitionToast(name, memory, health) → { memory, toast? }: two-probe confirmation [pure]
+hooks/ui/band.tsx            bandTree({ Box, Text }, segments): theme-key colours (success/error/warning) [pure given data + elements]
 hooks/ui/pane.tsx            Pane tree: status, stats table, model lists, buttons
 types/index.d.ts             PluginState contract (§3)
 tests/                       unit/*.test.ts (lib), kit/*.test.ts (hooks, UI), fixtures/*.json

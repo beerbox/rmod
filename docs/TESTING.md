@@ -73,7 +73,9 @@ Record the versions: `claude --version`, `ollama --version`, LM Studio version, 
 10. **/clear**: counters reset.
 11. **Desktop app**: open the Code tab with the plugin installed or configured (`CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json` `env`), then repeat steps 2, 3 and 8.
 12. **Narrow terminal**: resize to 50 columns. The compact band still makes sense.
-13. **Privacy**: run `grep -r` over `~/.claude/plugins/store/` for any prompt or command text. There should be none.
+13. **/clear with one backend disabled**: turn off "Monitor Ollama" in `/config`, then run `/clear`. The band still shows a dimmed `– Ollama off` immediately, and `--debug` shows no request to `:11434`.
+14. **No toast on a blip**: with Ollama up, run a large model load (or pause Ollama for about 2 s). The band may flick to `✗` for one poll, but there's no toast unless it stays down for two polls.
+15. **Privacy**: run `grep -r` over `~/.claude/plugins/store/` for any prompt or command text. There should be none.
 
 ## 6. Traceability (maintained by `qa-tester`)
 

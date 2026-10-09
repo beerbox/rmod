@@ -26,9 +26,9 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 - [x] M3.3 Kit tests with a mock clock and `http.fetch` stubs: up, refused, timeout, 401, 500, malformed, disabled, flapping.
 
 ## M4 Visual status band (FR-3)
-- [ ] M4.1 `AbovePrompt` band with ✓/✗/⚠/…/– plus words and colours, and a compact mode under 60 columns.
-- [ ] M4.2 One toast per transition, and none on the first probe.
-- [ ] M4.3 `/rmod-status` text fallback. Mount tests on `terminal` and `desktop`.
+- [x] M4.1 `AbovePrompt` band with ✓/✗/⚠/…/– plus words and colours, and a compact mode under 60 columns.
+- [x] M4.2 One toast per transition, and none on the first probe.
+- [x] M4.3 `/rmod-status` text fallback. Mount tests on `terminal` and `desktop`.
 - [ ] M4.4 Manual check in a real terminal and in the Desktop app (TESTING.md §5). Also run `/clear` with one backend disabled: it must still show `– off`, and LM Studio with a token must be asked for auth again. The kit can't reset state mid-test, so this is manual.
 
 ## M5 Available models (FR-5)

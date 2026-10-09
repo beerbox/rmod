@@ -36,7 +36,7 @@ export const register: Register = (on, options) => {
 ## Rendering
 
 - `const { Box, Text, Button } = $.ui.resolve(e)` inside the hook. Don't use element globals.
-- Status glyphs: `✓` with `color="green"` means listening, `✗` with `color="red"` means not listening, `…` dimmed means not checked yet, and `⚠` with `color="yellow"` means listening but auth required or the response was malformed. Always pair a glyph with a text label, so meaning never depends on colour alone (accessibility, and terminals without colour).
+- Status glyphs: `✓` with `color="success"` means listening, `✗` with `color="error"` means not listening, `…` dimmed means not checked yet, and `⚠` with `color="warning"` means listening but auth required or the response was malformed. Use these theme keys (`ThemeKey` in the types), not raw colour names, so the band follows the person's theme. Always pair a glyph with a text label, so meaning never depends on colour alone (accessibility, and terminals without colour).
 - Size the tree to `e.props.bodyColumns` for `Pane` and `AbovePrompt`. Truncate long model names with `wrap="truncate-end"`.
 - Give every `Button` a stable `key`. Tests press by key.
 - Render hooks only read: `read($, atom)`. They never write `$.state` or call `$.http.fetch`.

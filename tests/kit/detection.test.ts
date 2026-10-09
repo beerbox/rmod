@@ -1,29 +1,8 @@
-import { expect, mock, test } from 'claude-code/testing'
-import type { On } from 'claude-code'
-import type { Engine, MockClock } from 'claude-code/testing'
+import { expect, test } from 'claude-code/testing'
 
-import { typed } from './helpers'
-import { fakeServers } from './servers'
-import type { Mode } from './servers'
+import { boot, lmstudio, ollama, START } from './boot'
 
-const START = { surface: 'terminal', isInteractive: true, cwd: '/work' } as const
 const TOKEN = 'fake-test-token-not-real-0000'
-
-/** Stubs what session.start needs, the clock and the two servers, then starts the session. */
-const boot = (on: On, servers: { ollama: Mode; lmstudio: Mode }) => {
-  const clock: MockClock = mock.clock(on)
-  on('session.start', () => ({ cwd: '/work' }))
-  on('command.register', ($, e) => ({ value: { command: e.name } }))
-  on('ui.log', () => ({ value: undefined }))
-  mock.env(on, {})
-  return { clock, servers: fakeServers(on, clock, servers) }
-}
-
-/** What /rmod-status says about one backend: the kit has no state accessor, so tests read what a user would. */
-const lineOf = async ($: Engine, name: 'Ollama' | 'LM Studio') =>
-  ((await $.command.run(typed('rmod-status'))).text ?? '').split('\n').find(l => l.startsWith(`${name}:`)) ?? ''
-const ollama = ($: Engine) => lineOf($, 'Ollama')
-const lmstudio = ($: Engine) => lineOf($, 'LM Studio')
 
 test('FR-1.1 FR-2.1 FR-3.3 both servers are probed at start and then every poll interval', async ($, on) => {
   const { clock, servers } = boot(on, { ollama: 'up', lmstudio: 'up' })
@@ -232,3 +211,77 @@ test('FR-2.3 after LM Studio goes away, whatever answers next must ask for auth 
   await clock.advance(5000)
   expect(servers.fetched.filter(f => f.url.includes(':1234')).at(-1)?.authorization).toBeUndefined()
 })
+
+test(
+  'NFR-3 FR-2.3 an older LM Studio that needs auth gets at most two requests per tick',
+  { options: { lmstudioApiToken: TOKEN } },
+  async ($, on) => {
+    const { clock, servers } = boot(on, { ollama: 'up', lmstudio: 'native404auth' })
+    const lm = () => servers.fetched.filter(f => f.url.includes(':1234'))
+    await $.session.start(START)
+    await clock.settle()
+    expect(lm().map(f => [f.url, f.authorization])).toEqual([
+      ['http://127.0.0.1:1234/api/v1/models', undefined],
+      ['http://127.0.0.1:1234/v1/models', undefined],
+    ])
+    expect(await lmstudio($)).toMatch(/^LM Studio: ⚠ up, auth required/)
+    await clock.advance(5000)
+    expect(lm().slice(2).map(f => [f.url, f.authorization])).toEqual([['http://127.0.0.1:1234/v1/models', `Bearer ${TOKEN}`]])
+    expect(await lmstudio($)).toMatch(/^LM Studio: ✓ up .*OpenAI-compatible API/)
+  },
+)
+
+test('FR-2.4 a disabled LM Studio shows off and is never probed', { options: { enableLmStudio: false } }, async ($, on) => {
+  const { clock, servers } = boot(on, { ollama: 'up', lmstudio: 'up' })
+  await $.session.start(START)
+  await clock.advance(10_000)
+  expect(await lmstudio($)).toBe('LM Studio: – off')
+  expect(servers.fetched.some(f => f.url.includes(':1234'))).toBe(false)
+})
+
+test('FR-1.4 FR-2.4 with both disabled nothing is ever fetched', { options: { enableOllama: false, enableLmStudio: false } }, async ($, on) => {
+  const { clock, servers } = boot(on, { ollama: 'up', lmstudio: 'up' })
+  await $.session.start(START)
+  await clock.advance(60_000)
+  expect(servers.fetched).toEqual([])
+})
+
+test('FR-2.3 a 403 even with the token is retried once per probe and stays auth required', { options: { lmstudioApiToken: TOKEN } }, async ($, on) => {
+  const { clock, servers } = boot(on, { ollama: 'up', lmstudio: '403' })
+  await $.session.start(START)
+  await clock.settle()
+  expect(servers.fetched.filter(f => f.url.includes(':1234')).map(f => f.authorization)).toEqual([undefined, `Bearer ${TOKEN}`])
+  expect(await lmstudio($)).toMatch(/^LM Studio: ⚠ up, auth required/)
+})
+
+test('FR-2.2 a 404 on both endpoints is degraded, and native is tried again next tick', async ($, on) => {
+  const { clock, servers } = boot(on, { ollama: 'up', lmstudio: '404' })
+  await $.session.start(START)
+  await clock.settle()
+  expect(await lmstudio($)).toMatch(/^LM Studio: ⚠ degraded \(unexpected HTTP status\)/)
+  await clock.advance(5000)
+  expect(servers.fetched.filter(f => f.url.includes(':1234')).map(f => f.url.replace('http://127.0.0.1:1234', ''))).toEqual([
+    '/api/v1/models',
+    '/v1/models',
+    '/api/v1/models',
+    '/v1/models',
+  ])
+})
+
+test('FR-1.3 the probe round-trip time is recorded', async ($, on) => {
+  const { clock } = boot(on, { ollama: 'slow', lmstudio: 'up' })
+  await $.session.start(START)
+  await clock.advance(37)
+  expect(await ollama($)).toMatch(/^Ollama: ✓ up · v0\.40\.2 · 37 ms · /)
+})
+
+test(
+  'NFR-1 FR-6.3 a URL trick in config is rejected and never fetched',
+  { options: { lmstudioUrl: 'http://localhost@evil.com:1234', ollamaUrl: 'http://0x7f000001:11434' } },
+  async ($, on) => {
+    const { clock, servers } = boot(on, { ollama: 'up', lmstudio: 'up' })
+    await $.session.start(START)
+    await clock.advance(10_000)
+    for (const f of servers.fetched) expect(f.url).toMatch(/^http:\/\/127\.0\.0\.1:(11434|1234)\//)
+  },
+)
