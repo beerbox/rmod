@@ -104,6 +104,12 @@ export const asStats = (v: unknown): Stats => {
 
 export const begin = (s: Stats): Stats => ({ ...s, inFlight: s.inFlight + 1 })
 
+/** Takes back a `begin` for something that turned out not to be a request (a refused tool call). */
+export const cancel = (s: Stats): Stats => ({ ...s, inFlight: Math.max(0, s.inFlight - 1) })
+
+/** Clears the counters but keeps requests still running, so the band doesn't hide live work. */
+export const reset = (s: Stats): Stats => ({ ...emptyStats(), inFlight: s.inFlight })
+
 const ms = (v: unknown): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(Math.max(v, 0), MAX_LATENCY_MS) : 0
 

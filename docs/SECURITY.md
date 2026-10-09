@@ -52,6 +52,8 @@ Allowed env reads: `ANTHROPIC_BASE_URL`, `OLLAMA_HOST`. No env writes are allowe
 
 Allowed hooked events: `session.start`, `classic.SessionStart`, `turn.step`, `tool.call`, `command.run`, `ui.render`.
 
+**The one accepted gating line (approved by the user, 2026-10-09):** `claude plugin validate` lists every `tool.call` hook as `gating hook without .catch: tool.call`, because a hook there *could* refuse a call. rmod's `tool.call` hook is an observer: it never returns `deny`, never rewrites `e`, and always returns what `next(e)` resolved to. Kit tests prove a result, a tool error and a refusal all pass through unchanged. It deliberately has no `.catch`, so if it ever throws, the engine skips it and the call goes ahead (fail-open). Any other gating line, a `gating hook with .catch`, a second `tool.call` hook, or a hook that returns an object with a `deny` key fails `/verify`, which greps for it.
+
 Anything else needs a written justification in this file, approved by the user, before it's used.
 
 **No command hooks:** `hooks/hooks.json` holds only `modules` and must never gain `hooks` command entries. Claude Code exports `CLAUDE_PLUGIN_OPTION_<KEY>` to command-hook processes for every option, which could include `LMSTUDIOAPITOKEN`.

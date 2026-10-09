@@ -10,7 +10,7 @@ import type { Mode } from './servers'
 
 export const START = { surface: 'terminal', isInteractive: true, cwd: '/work' } as const
 
-export const boot = (on: On, servers: { ollama: Mode; lmstudio: Mode }) => {
+export const boot = (on: On, servers: { ollama: Mode; lmstudio: Mode }, env: Record<string, string> = {}) => {
   const clock: MockClock = mock.clock(on)
   const toasts: string[] = []
   const registered: string[] = []
@@ -24,7 +24,7 @@ export const boot = (on: On, servers: { ollama: Mode; lmstudio: Mode }) => {
     toasts.push(e.text)
     return { value: undefined }
   })
-  mock.env(on, {})
+  mock.env(on, env)
   return { clock, toasts, registered, servers: fakeServers(on, clock, servers) }
 }
 
@@ -33,3 +33,6 @@ const lineOf = async ($: Engine, name: 'Ollama' | 'LM Studio') =>
   ((await $.command.run(typed('rmod-status'))).text ?? '').split('\n').find(l => l.startsWith(`${name}:`)) ?? ''
 export const ollama = ($: Engine) => lineOf($, 'Ollama')
 export const lmstudio = ($: Engine) => lineOf($, 'LM Studio')
+/** The /rmod-status Session line ('' before the first local request). */
+export const session = async ($: Engine) =>
+  ((await $.command.run(typed('rmod-status'))).text ?? '').split('\n').find(l => l.startsWith('Session:')) ?? ''

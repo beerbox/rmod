@@ -1,6 +1,7 @@
-import type { EngineInterface, Register, Timer } from 'claude-code'
+import type { EngineInterface, Register, Timer, ToolCallResult, TurnStepResult } from 'claude-code'
 import { atom, read, update } from 'claude-code'
 
+import { backendForModelStep, classifyToolCall, targetsOf } from './lib/attribution'
 import { bandLine } from './lib/band'
 import { applyInventory, inventoryDue, ollamaInventory, sameInventory } from './lib/inventory'
 import type { InventoryResult } from './lib/inventory'
@@ -8,7 +9,8 @@ import { defaultConfig, parseConfig } from './lib/config'
 import type { Config } from './lib/config'
 import { applyProbe, initialStatus, lmstudioProbe, ollamaProbe } from './lib/probe'
 import type { LmStudioStep, ProbeOutcome, ProbeResult } from './lib/probe'
-import { asStats, emptyStats, summarize } from './lib/stats'
+import { isBackgroundBash, isFirstOutput, stepSucceeded, toolOutcome, usageOf } from './lib/requests'
+import { asStats, begin, cancel, emptyStats, end, reset, summarize } from './lib/stats'
 import { statusText } from './lib/status-text'
 import { freshMemory, transitionToast } from './lib/transitions'
 import type { ToastMemory } from './lib/transitions'
@@ -16,7 +18,7 @@ import { parseJson } from './lib/models'
 import { parseTags } from './lib/parse-ollama'
 import { buildUrl } from './lib/url-guard'
 import { bandTree } from './ui/band'
-import type { BackendStatus, Health, LmStudioEndpoint } from '../types'
+import type { BackendStatus, Health, LmStudioEndpoint, ModelInfo, Stats } from '../types'
 
 // Static analysis lets `$` reach only functions declared at the top of this file, and lets `read` /
 // `update` take only atoms defined in this file. So the work and the atoms live here, and the
@@ -50,14 +52,56 @@ type Ctx = {
   /** FR-5.1: when the Ollama inventory was last fetched, and whether /rmod-refresh asked for it now. */
   inventoryAt: number | undefined
   forceInventory: boolean
+  /** FR-4.1a: ANTHROPIC_BASE_URL, read at session.start. */
+  baseUrl: string | undefined
+  /** FR-4.1a: model ids per backend, cached as inventories are written so a model step reads no state. */
+  models: { ollama: readonly ModelInfo[]; lmstudio: readonly ModelInfo[] }
+  /**
+   * Stats writes in order, never awaited by a tool or model hook (NFR-2): begin and end land in the
+   * order they were made without delaying the request.
+   */
+  statsQueue: Promise<void>
+  /** Writes queued and not yet settled; past MAX_PENDING_WRITES new ones are dropped. */
+  pendingWrites: number
 }
+
+const MAX_PENDING_WRITES = 100
+const WRITE_TIMEOUT_MS = 2000
+
+/**
+ * Queues one stats change for a backend. `change` may await the clock reads the request hook
+ * started without awaiting, so no request waits on rmod. Each write is raced against a timer, so
+ * one that never settles can't stall the queue. Failures are dropped: counting never affects a request.
+ */
+const record = ($: EngineInterface, ctx: Ctx, backend: Backend, change: () => Promise<(s: Stats) => Stats>): void => {
+  if (ctx.pendingWrites >= MAX_PENDING_WRITES) return
+  ctx.pendingWrites += 1
+  ctx.statsQueue = ctx.statsQueue
+    .then(async () => {
+      const apply = await change()
+      const write =
+        backend === 'ollama' ? update($, statsOllama, s => apply(asStats(s))) : update($, statsLmstudio, s => apply(asStats(s)))
+      await Promise.race([write, $.clock.sleep(WRITE_TIMEOUT_MS)])
+    })
+    .catch(() => {})
+    .finally(() => {
+      ctx.pendingWrites -= 1
+    })
+}
+
+/** A clock read started now and awaited later (inside `record`), so the request never waits on it. */
+const stamp = ($: EngineInterface): Promise<number | undefined> => $.clock.now().then(
+  t => t,
+  () => undefined,
+)
 
 /** Whether an inventory result would change nothing in `s` (so it isn't written and redrawn). */
 const unchanged = (s: BackendStatus, r: InventoryResult): boolean =>
   'models' in r && s.modelsError === undefined && s.modelsAt !== undefined && sameInventory(s, r.models)
 
 /** Writes an inventory result unless it is what state already holds. Static analysis wants each atom named. */
-const writeInventory = async ($: EngineInterface, backend: Backend, r: InventoryResult, at: number): Promise<void> => {
+const writeInventory = async ($: EngineInterface, ctx: Ctx, backend: Backend, r: InventoryResult, at: number): Promise<void> => {
+  if ('models' in r) ctx.models[backend] = r.models.models
   if (backend === 'ollama') {
     if (!unchanged(await read($, ollamaStatus), r)) await update($, ollamaStatus, prev => applyInventory(prev, r, at))
   } else if (!unchanged(await read($, lmstudioStatus), r)) {
@@ -78,7 +122,7 @@ const refreshOllamaModels = async ($: EngineInterface, ctx: Ctx, cameUp: boolean
   // A failed or unreadable /api/tags decides; skip /api/ps then.
   const tagsReadable = tags.kind === 'response' && tags.status >= 200 && tags.status <= 299 && parseTags(parseJson(tags.text)) !== undefined
   const ps: ProbeOutcome = tagsReadable ? await probe($, ctx, 'ollama', psUrl) : { kind: 'timeout' }
-  await writeInventory($, 'ollama', ollamaInventory(tags, ps), await $.clock.now())
+  await writeInventory($, ctx, 'ollama', ollamaInventory(tags, ps), await $.clock.now())
 }
 
 /** Shows the toast a probe result calls for, if any (FR-3.4). */
@@ -168,7 +212,7 @@ const probeLmStudio = async ($: EngineInterface, ctx: Ctx): Promise<void> => {
   await update($, lmstudioStatus, s => applyProbe(s, r, at))
   announce($, ctx, 'lmstudio', r.health)
   // FR-5.1: the probe's own response is the inventory: no extra request.
-  if (step.models !== undefined) await writeInventory($, 'lmstudio', { models: step.models }, at)
+  if (step.models !== undefined) await writeInventory($, ctx, 'lmstudio', { models: step.models }, at)
 }
 
 /** Probes one backend unless its previous probe is still pending. rmod's own failures never escape. */
@@ -256,6 +300,10 @@ export const register: Register = (on, options) => {
     toasts: { ollama: freshMemory(), lmstudio: freshMemory() },
     inventoryAt: undefined,
     forceInventory: false,
+    baseUrl: undefined,
+    models: { ollama: [], lmstudio: [] },
+    statsQueue: Promise.resolve(),
+    pendingWrites: 0,
   }
   try {
     const parsed = parseConfig(options, undefined)
@@ -275,6 +323,14 @@ export const register: Register = (on, options) => {
     } catch {
       $.ui.log('rmod: could not read OLLAMA_HOST; using configured values')
     }
+    try {
+      ctx.baseUrl = await $.env.get('ANTHROPIC_BASE_URL')
+    } catch {
+      ctx.baseUrl = undefined
+    }
+    // A load or reload can't have requests of its own in flight: clear any count a lost one left behind.
+    record($, ctx, 'ollama', async () => s => ({ ...s, inFlight: 0 }))
+    record($, ctx, 'lmstudio', async () => s => ({ ...s, inFlight: 0 }))
 
     try {
       await $.command.register({
@@ -288,6 +344,15 @@ export const register: Register = (on, options) => {
     }
     try {
       await $.command.register({
+        name: 'rmod-reset',
+        description: 'rmod: reset this session\'s local request counters',
+        immediate: true,
+      })
+    } catch {
+      $.ui.log('rmod: could not register /rmod-reset')
+    }
+    try {
+      await $.command.register({
         name: 'rmod-refresh',
         description: 'rmod: re-read the local model lists now',
         immediate: true,
@@ -298,6 +363,98 @@ export const register: Register = (on, options) => {
 
     await startPolling($, ctx)
     return next(e)
+  })
+
+  // FR-4.1a, FR-4.2: model requests to a local backend. An observer: every chunk is passed on as
+  // it came and the result is returned unchanged. A step that isn't local is handed straight on.
+  // Nothing on the request path awaits rmod: clock reads are started here and resolved in `record`.
+  on('turn.step', async function* ($, e, next) {
+    let backend: Backend | null = null
+    try {
+      backend = backendForModelStep(ctx.baseUrl, e.model, targetsOf(ctx.config), ctx.models)
+    } catch {
+      backend = null
+    }
+    if (backend === null) return yield* next(e)
+    const b = backend
+    const t0 = stamp($)
+    let first: Promise<number | undefined> | undefined
+    let result: TurnStepResult | undefined
+    let done = false
+    // Once only: from finally, or from the dispatch's abort if the stream is abandoned (FR-4.3).
+    const finish = () => {
+      if (done) return
+      done = true
+      const at = stamp($)
+      const r = result
+      record($, ctx, b, async () => {
+        const [start, firstAt, endAt] = await Promise.all([t0, first, at])
+        const s0 = start ?? 0
+        const u = usageOf(r?.usage)
+        const sample = {
+          kind: 'model' as const,
+          ok: stepSucceeded(r),
+          latencyMs: (endAt ?? s0) - s0,
+          at: endAt ?? s0,
+          ttftMs: firstAt === undefined ? undefined : firstAt - s0,
+          outTokens: u.outTokens,
+          model: u.model ?? e.model,
+        }
+        return s => end(s, sample)
+      })
+    }
+    record($, ctx, b, async () => begin)
+    try {
+      next.signal.addEventListener('abort', finish, { once: true })
+    } catch {
+      // No abort signal: finally still runs.
+    }
+    try {
+      const stream = next(e)
+      // Closing early makes `result` reject: that's an interrupt, already counted below.
+      stream.result.catch(() => {})
+      for await (const chunk of stream) {
+        if (first === undefined && isFirstOutput(chunk)) first = stamp($)
+        yield chunk
+      }
+      result = await stream.result
+      return result
+    } finally {
+      finish()
+    }
+  })
+
+  // FR-4.1b, FR-4.2: tool calls that reach a local backend. An observer: the result is returned
+  // unchanged, and only the backend's name is kept, never the command, URL or input (FR-4.6).
+  // A refused call never reached the backend, so it isn't a request (FR-4.1).
+  on('tool.call', async ($, e, next) => {
+    let backend: Backend | null = null
+    try {
+      const input = e as unknown as Readonly<Record<string, unknown>>
+      const tool = String(e.tool)
+      if (!isBackgroundBash(tool, input)) backend = classifyToolCall(tool, input, targetsOf(ctx.config), ctx.config.mcpPattern)
+    } catch {
+      backend = null
+    }
+    if (backend === null) return next(e)
+    const b = backend
+    const t0 = stamp($)
+    record($, ctx, b, async () => begin)
+    let r: ToolCallResult | undefined
+    try {
+      r = await next(e)
+      return r
+    } finally {
+      const at = stamp($)
+      const outcome = toolOutcome(r)
+      record($, ctx, b, async () => {
+        if (outcome === 'refused') return cancel
+        const [start, endAt] = await Promise.all([t0, at])
+        const s0 = start ?? 0
+        const sample = { kind: 'tool' as const, ok: outcome === 'ok', latencyMs: (endAt ?? s0) - s0, at: endAt ?? s0 }
+        return s => end(s, sample)
+      })
+    }
   })
 
   // FR-3.1: the band above the prompt. Reads only; it never fetches or writes (NFR-3).
@@ -324,6 +481,18 @@ export const register: Register = (on, options) => {
       return { text: await statusOf($, ctx) }
     } catch {
       return { text: 'rmod: status unavailable' }
+    }
+  })
+
+  // FR-4.5: counters reset on demand. A request still running when this lands ends without going negative.
+  on('command.run', { command: 'rmod-reset' }, async $ => {
+    try {
+      record($, ctx, 'ollama', async () => reset)
+      record($, ctx, 'lmstudio', async () => reset)
+      await Promise.race([ctx.statsQueue, $.clock.sleep(1000)])
+      return { text: 'rmod: local request counters reset' }
+    } catch {
+      return { text: 'rmod: reset failed' }
     }
   })
 

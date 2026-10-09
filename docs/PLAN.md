@@ -36,9 +36,9 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 - [x] M5.2 Band counts and pane model lists (loaded first, capped, `+N more`). The rows (`modelRows`) are built and tested; the pane that draws them comes in M7.1.
 
 ## M6 Live request counter (FR-4)
-- [ ] M6.1 `turn.step` instrumentation (count, in-flight, latency, TTFT, tokens), with attribution. Time TTFT to the first `text`/`thinking`/`tool` chunk, not an engine or envelope chunk (check the `TurnStepChunk` kinds in the types), and read `outTokens` from `TurnUsage` (check the field name). Wrap every stats update in try/catch (NFR-2).
-- [ ] M6.2 `tool.call` instrumentation for Bash, WebFetch and MCP patterns. Never record the command text. Pass `e` itself as `input` (the arguments are top level on `e`). Skip Bash with `run_in_background`. Check by hand whether WebFetch fetches loopback `http://` at all (it may refuse or upgrade it).
-- [ ] M6.3 Pane stats table and band summary. `/rmod-reset`. State survives hot reload and resets on `/clear`.
+- [x] M6.1 `turn.step` instrumentation (count, in-flight, latency, TTFT, tokens), with attribution. Time TTFT to the first `text`/`thinking`/`tool` chunk, not an engine or envelope chunk (check the `TurnStepChunk` kinds in the types), and read `outTokens` from `TurnUsage` (check the field name). Wrap every stats update in try/catch (NFR-2).
+- [x] M6.2 `tool.call` instrumentation for Bash, WebFetch and MCP patterns. Never record the command text. Pass `e` itself as `input` (the arguments are top level on `e`). Skip Bash with `run_in_background`. Check by hand whether WebFetch fetches loopback `http://` at all (it may refuse or upgrade it).
+- [x] M6.3 Band summary and `/rmod-status` session line (the pane stats table is drawn in M7.1). `/rmod-reset`. State survives hot reload and resets on `/clear`.
 - [ ] M6.4 Manual end-to-end: run Claude Code against Ollama via `ANTHROPIC_BASE_URL=http://127.0.0.1:11434` (TESTING.md §5) and against LM Studio, and check that the counts match the number of requests.
 
 ## M7 Pane polish and preferences (FR-3.5, FR-3.6)

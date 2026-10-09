@@ -90,9 +90,11 @@ on('turn.step', async function* ($, e, next) {
 ```
 Verify the `HookStream` `.result` and generator semantics against the types before you implement this. If re-yielding is fragile, use `const r = yield* next(e)` and drop TTFT. FR-4.2 then marks TTFT as "n/a".
 
-**Tool requests** (`tool.call`, no matcher): `classifyToolCall(e)` returns `BackendId | null` from `e.tool` and its arguments, using regexes over host:port and CLI verbs. It never stores the command. If not local, `return next(e)`. If local, run begin, then `const r = await next(e)`, then end (ok = `!r.deny && !r.isError`), then `return r`.
+**Stats writes** go through `ctx.statsQueue`, a promise chain no request hook awaits. The hooks only *start* `$.clock.now()` reads; the queued write awaits them. Each write races a 2 s timer, at most 100 are pending, and `session.start` clears any in-flight count a lost request left behind. `begin` and `end` land in order without delaying the request (NFR-2). The model-name inventories used for attribution are cached in `ctx` when written, so a model step reads no state.
 
-**Attribution of model requests**: (1) parse `ANTHROPIC_BASE_URL` once at start. If its host is loopback and the port equals a backend's port, every step is that backend's. (2) Else, if `e.model` (or `result.usage.model`) exactly matches an inventory model id of one backend, attribute it there. (3) Else it isn't local. The cached base URL refreshes on `classic.SessionStart`.
+**Tool requests** (`tool.call`, no matcher; validate lists it as the one accepted gating hook, see SECURITY.md §4): `classifyToolCall(e)` returns `BackendId | null` from `e.tool` and its arguments, using regexes over host:port and CLI verbs. It never stores the command. If not local, `return next(e)`. If local, run begin, then `const r = await next(e)`, then end (ok = `!r.deny && !r.isError`), then `return r`.
+
+**Attribution of model requests**: (1) parse `ANTHROPIC_BASE_URL` once at start. If its host is loopback and the port equals a backend's port, every step is that backend's. (2) Else, when there's no base URL or it's loopback on a port that is no backend's, if `e.model` matches an inventory model id of exactly one enabled backend (Ollama: `name` = `name:latest`), attribute it there. (3) Else it isn't local. The backend is chosen before the step runs. `usage.model` only feeds `byModel`. The base URL is read in `session.start` (load and reload).
 
 ## 5. UI
 
