@@ -47,7 +47,7 @@ Run everything with `/verify`. `claude plugin test` exits 1 on any failure, so i
 | S15 | failed and aborted steps and tool errors → `failed++` | FR-4.2 |
 | S16 | rmod's own probes are never counted | FR-4.1c |
 | S17 | hot reload (re-raise `session.start`) keeps `$.state` counters and doesn't start a second timer | FR-4.5, NFR-3 |
-| S18 | `classic.SessionStart {source:'clear'}` → counters at defaults, band preference re-seeded from store | FR-4.5, FR-3.6 |
+| S18 | `/clear` → counters at defaults, band preference and off states re-seeded by the next poll tick (no `classic.SessionStart` hook, which validate lists as gating). The kit can't reset `$.state` under a live module, so this is **manual** (§5 steps 10 and 13). The read-time on/off is kit-tested | FR-4.5, FR-3.6 |
 | S19 | rmod throws internally (bad fixture or forced error) → the tool call and turn step results are passed through unchanged | NFR-2 |
 | S20 | UI on terminal and desktop: band full (≥ 60 cols) and compact (< 60). Pane buttons Refresh, Reset and Hide work by key. Every status glyph has a word. | FR-3.*, NFR-5 |
 | S21 | `/rmod-status` text equals the state (for `-p` and VS Code) | FR-3.7, FR-6.1 |

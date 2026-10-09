@@ -22,7 +22,7 @@ export type BandInput = {
 
 const GLYPH: { readonly [H in Health]: string } = { up: '✓', auth: '⚠', degraded: '⚠', down: '✗', unknown: '…', off: '–' }
 const WORD: { readonly [H in Health]: string } = { up: '', auth: ' auth', degraded: ' degraded', down: '', unknown: '', off: ' off' }
-const TONE: { readonly [H in Health]: Tone } = { up: 'ok', auth: 'warn', degraded: 'warn', down: 'bad', unknown: 'dim', off: 'dim' }
+export const TONE: { readonly [H in Health]: Tone } = { up: 'ok', auth: 'warn', degraded: 'warn', down: 'bad', unknown: 'dim', off: 'dim' }
 
 export const formatMs = (ms: number): string =>
   ms < 1000 ? `${Math.round(ms)}ms` : ms < 10_000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms / 1000)}s`

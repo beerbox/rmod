@@ -23,7 +23,8 @@ hooks/lib/stats.ts           ring buffer, avg/p50/p95, tok/s; immutable updates 
 hooks/lib/band.ts            bandLine(input, bodyColumns) → segments (full, trimmed, compact <60) [pure]
 hooks/lib/transitions.ts     transitionToast(name, memory, health) → { memory, toast? }: two-probe confirmation [pure]
 hooks/ui/band.tsx            bandTree({ Box, Text }, segments): theme-key colours (success/error/warning) [pure given data + elements]
-hooks/ui/pane.tsx            Pane tree: status, stats table, model lists, buttons
+hooks/lib/pane.ts            paneSection(name, status, stats, now) → status line, FR-4.4 stats lines, model rows [pure]
+hooks/ui/pane.tsx            paneTree({Box,Text,Button}, sections, bandHidden, actions): buttons r/z/h, truncated names
 types/index.d.ts             PluginState contract (§3)
 tests/                       unit/*.test.ts (lib), kit/*.test.ts (hooks, UI), fixtures/*.json
 ```
@@ -45,7 +46,7 @@ tests/                       unit/*.test.ts (lib), kit/*.test.ts (hooks, UI), fi
 | method | `$.env.get('ANTHROPIC_BASE_URL')`, `$.env.get('OLLAMA_HOST')` | attribution & default URL |
 | method | `$.command.register` | commands (`immediate: true`) |
 | method | `$.ui.open/close/resolve/toast/status/log/invalidate` | UI |
-| method | `$.store.get/set` | persist `bandHidden` only |
+| method | `$.store.get/set` | persist `bandHidden` only. Loaded in `session.start`, and a saved boolean wins over `showBand`. `ctx.bandHidden` is what's drawn, and the tick re-seeds the atom after `/clear` |
 | method | `$.state.*` via `atom/read/update` | session state |
 
 ## 3. State contract (`types/index.d.ts`, sketch)
@@ -104,7 +105,7 @@ Band (full width ≥ 60 cols):
 ```
 Compact (< 60 cols): `✓O ✗L · 12 req · 2.3s`
 
-Pane `/rmod` (focus, closeOnEscape): header row of buttons `[r Refresh] [z Reset] [h Hide band]`. Then a section for each backend: the status line (glyph, word, version, probe ms, checked N s ago), a stats table, and the model list (`●` loaded first, then `○`), with the session's request count per model.
+Pane `/rmod` (focus, closeOnEscape, no holdToasts): header row of `plain` buttons, drawn `r: Refresh   z: Reset   h: Hide band` (bracketed buttons hide their hotkeys in the terminal), and a marker legend at the bottom. Each tick calls `$.ui.invalidate('ui.render')` so the "N s ago" ages advance even when no probe writes state. In `claude -p` (`surface: null` or `!isInteractive`) `/rmod` answers with the status text, because `-p` places panes without drawing them. Then a section for each backend: the status line (glyph, word, version, probe ms, checked N s ago), a stats table, and the model list (`●` loaded first, then `○`), with the session's request count per model.
 
 Colours: green means up, red means down, yellow means auth/degraded, dim means unknown/off. Every glyph is paired with a word.
 

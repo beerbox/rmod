@@ -16,8 +16,10 @@ import { freshMemory, transitionToast } from './lib/transitions'
 import type { ToastMemory } from './lib/transitions'
 import { parseJson } from './lib/models'
 import { parseTags } from './lib/parse-ollama'
+import { paneSection } from './lib/pane'
 import { buildUrl } from './lib/url-guard'
 import { bandTree } from './ui/band'
+import { paneTree } from './ui/pane'
 import type { BackendStatus, Health, LmStudioEndpoint, ModelInfo, Stats } from '../types'
 
 // Static analysis lets `$` reach only functions declared at the top of this file, and lets `read` /
@@ -28,6 +30,8 @@ const ollamaStatus = atom({ plugin: 'rmod', key: 'ollama' } as const, initialSta
 const lmstudioStatus = atom({ plugin: 'rmod', key: 'lmstudio' } as const, initialStatus())
 const statsOllama = atom({ plugin: 'rmod', key: 'statsOllama' } as const, emptyStats())
 const statsLmstudio = atom({ plugin: 'rmod', key: 'statsLmstudio' } as const, emptyStats())
+/** FR-3.6: drawn from ctx.bandHidden; this atom only makes the band and pane redraw when it changes. */
+const bandHidden = atom({ plugin: 'rmod', key: 'bandHidden' } as const, false)
 /** Which LM Studio endpoint answered this session (FR-2.2); null until known. */
 const lmstudioEndpoint = atom({ plugin: 'rmod', key: 'lmstudioEndpoint' } as const, null)
 
@@ -63,6 +67,58 @@ type Ctx = {
   statsQueue: Promise<void>
   /** Writes queued and not yet settled; past MAX_PENDING_WRITES new ones are dropped. */
   pendingWrites: number
+  /**
+   * FR-3.6: the person's band choice, loaded from $.store at session.start (showBand is only the
+   * default). Kept here because /clear resets $.state: the band reads this, the tick re-seeds the atom.
+   */
+  bandHidden: boolean
+  /** Band-setting writes in order, so a double press leaves $.store with the last choice. */
+  bandQueue: Promise<void>
+  /** FR-3.7: `claude -p` or the SDK: panes are "placed" there but nothing draws them. */
+  headless: boolean
+}
+
+const PANE_ID = 'rmod'
+const STORE_BAND_HIDDEN = 'bandHidden'
+
+/** FR-5.1: re-read the inventories now, from a timer (the probes' sleeps must not run in a hook). */
+const requestRefresh = ($: EngineInterface, ctx: Ctx): void => {
+  ctx.forceInventory = true
+  try {
+    $.clock.after(0, () => tick($, ctx))
+  } catch {
+    // The next poll picks up the forced refresh.
+  }
+}
+
+/** FR-4.5: clear the counters, keeping requests still running. */
+const resetCounters = ($: EngineInterface, ctx: Ctx): void => {
+  record($, ctx, 'ollama', async () => reset)
+  record($, ctx, 'lmstudio', async () => reset)
+}
+
+/** FR-3.6: flip the band, remember it across sessions, redraw the band and the pane. */
+const toggleBand = ($: EngineInterface, ctx: Ctx): void => {
+  ctx.bandHidden = !ctx.bandHidden
+  const hidden = ctx.bandHidden
+  ctx.bandQueue = ctx.bandQueue.then(async () => {
+    try {
+      await update($, bandHidden, () => hidden)
+    } catch {
+      // The band still reads ctx; the next tick re-seeds the atom.
+    }
+    // An equal-value write (right after /clear) may not redraw: ask for one.
+    try {
+      $.ui.invalidate('ui.render')
+    } catch {
+      // The next state write redraws.
+    }
+    try {
+      await $.store.set(STORE_BAND_HIDDEN, hidden)
+    } catch {
+      $.ui.log('rmod: could not save the band setting')
+    }
+  })
 }
 
 const MAX_PENDING_WRITES = 100
@@ -237,6 +293,9 @@ const keepOff = async ($: EngineInterface, ctx: Ctx): Promise<void> => {
   try {
     if (!ctx.config.enableOllama && (await read($, ollamaStatus)).health !== 'off') await update($, ollamaStatus, s => onOff(s, false))
     if (!ctx.config.enableLmStudio && (await read($, lmstudioStatus)).health !== 'off') await update($, lmstudioStatus, s => onOff(s, false))
+    // FR-3.6: after /clear the atom is back at its default; put the person's choice back.
+    const hidden = ctx.bandHidden
+    if ((await read($, bandHidden)) !== hidden) await update($, bandHidden, () => hidden)
   } catch {
     // Try again next tick.
   }
@@ -247,6 +306,13 @@ const tick = ($: EngineInterface, ctx: Ctx): void => {
   void keepOff($, ctx)
   if (ctx.config.enableOllama) void runProbe($, ctx, 'ollama')
   if (ctx.config.enableLmStudio) void runProbe($, ctx, 'lmstudio')
+  // The pane's "checked N s ago" and "last request N s ago" must age even when no probe writes
+  // state (one still pending, both backends off). The engine throttles this; it does no I/O.
+  try {
+    $.ui.invalidate('ui.render')
+  } catch {
+    // The next state write redraws.
+  }
 }
 
 /**
@@ -304,6 +370,9 @@ export const register: Register = (on, options) => {
     models: { ollama: [], lmstudio: [] },
     statsQueue: Promise.resolve(),
     pendingWrites: 0,
+    bandHidden: false,
+    bandQueue: Promise.resolve(),
+    headless: false,
   }
   try {
     const parsed = parseConfig(options, undefined)
@@ -314,6 +383,7 @@ export const register: Register = (on, options) => {
   }
 
   on('session.start', async ($, e, next) => {
+    ctx.headless = !e.isInteractive || e.surface === null
     try {
       const parsed = parseConfig(options, await $.env.get('OLLAMA_HOST'))
       ctx.config = parsed.config
@@ -327,6 +397,19 @@ export const register: Register = (on, options) => {
       ctx.baseUrl = await $.env.get('ANTHROPIC_BASE_URL')
     } catch {
       ctx.baseUrl = undefined
+    }
+    // FR-3.6: a saved choice wins; showBand is only the default. Anything but a boolean is ignored.
+    ctx.bandHidden = !ctx.config.showBand
+    try {
+      const saved = await $.store.get(STORE_BAND_HIDDEN)
+      if (typeof saved === 'boolean') ctx.bandHidden = saved
+    } catch {
+      // Keep the default.
+    }
+    try {
+      await $.command.register({ name: 'rmod', description: 'rmod: open the local models pane', immediate: true })
+    } catch {
+      $.ui.log('rmod: could not register /rmod')
     }
     // A load or reload can't have requests of its own in flight: clear any count a lost one left behind.
     record($, ctx, 'ollama', async () => s => ({ ...s, inFlight: 0 }))
@@ -460,7 +543,9 @@ export const register: Register = (on, options) => {
   // FR-3.1: the band above the prompt. Reads only; it never fetches or writes (NFR-3).
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     try {
-      if (e.props.hasSurvey || !ctx.config.showBand) return next(e)
+      // Subscribes the band to the setting; the value drawn is ctx's (FR-3.6).
+      await read($, bandHidden)
+      if (e.props.hasSurvey || ctx.bandHidden) return next(e)
       const input = {
         // On/off is applied as it is read, so a disabled backend shows off at once after /clear.
         ollama: onOff(await read($, ollamaStatus), ctx.config.enableOllama),
@@ -476,6 +561,37 @@ export const register: Register = (on, options) => {
     }
   })
 
+  // FR-3.5: the pane. Reads only; the buttons' handlers do the work (NFR-3).
+  on('ui.render', { component: 'Pane', requestId: PANE_ID }, async ($, e, next) => {
+    try {
+      await read($, bandHidden)
+      const now = await $.clock.now()
+      const sections = [
+        paneSection('Ollama', onOff(await read($, ollamaStatus), ctx.config.enableOllama), asStats(await read($, statsOllama)), now),
+        paneSection('LM Studio', onOff(await read($, lmstudioStatus), ctx.config.enableLmStudio), asStats(await read($, statsLmstudio)), now),
+      ]
+      return paneTree($.ui.resolve(e), sections, ctx.bandHidden, {
+        onRefresh: () => requestRefresh($, ctx),
+        onReset: () => resetCounters($, ctx),
+        onToggleBand: () => toggleBand($, ctx),
+      })
+    } catch {
+      return next(e)
+    }
+  })
+
+  on('command.run', { command: 'rmod' }, async $ => {
+    try {
+      // FR-3.7: where nothing draws, answer with the same information as text. `claude -p` places
+      // every pane without drawing it, so it is told apart by the session, not by isPlaced.
+      if (ctx.headless) return { text: await statusOf($, ctx) }
+      const placed = await $.ui.open({ id: PANE_ID, title: 'rmod · local models', focus: true, closeOnEscape: true })
+      return placed.isPlaced ? { text: 'rmod: pane opened (Esc closes it)' } : { text: await statusOf($, ctx) }
+    } catch {
+      return { text: 'rmod: could not open the pane; try /rmod-status' }
+    }
+  })
+
   on('command.run', { command: 'rmod-status' }, async $ => {
     try {
       return { text: await statusOf($, ctx) }
@@ -487,8 +603,7 @@ export const register: Register = (on, options) => {
   // FR-4.5: counters reset on demand. A request still running when this lands ends without going negative.
   on('command.run', { command: 'rmod-reset' }, async $ => {
     try {
-      record($, ctx, 'ollama', async () => reset)
-      record($, ctx, 'lmstudio', async () => reset)
+      resetCounters($, ctx)
       await Promise.race([ctx.statsQueue, $.clock.sleep(1000)])
       return { text: 'rmod: local request counters reset' }
     } catch {
@@ -501,8 +616,7 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'rmod-refresh' }, async $ => {
     try {
       const busy = ctx.pending.ollama || ctx.pending.lmstudio || ctx.inflight.ollama > 0 || ctx.inflight.lmstudio > 0
-      ctx.forceInventory = true
-      $.clock.after(0, () => tick($, ctx))
+      requestRefresh($, ctx)
       return {
         text: busy
           ? 'rmod: a check is already running; the model lists refresh with it. Run /rmod-status in a moment.'

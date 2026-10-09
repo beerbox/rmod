@@ -42,8 +42,8 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 - [ ] M6.4 Manual end-to-end: run Claude Code against Ollama via `ANTHROPIC_BASE_URL=http://127.0.0.1:11434` (TESTING.md §5) and against LM Studio, and check that the counts match the number of requests.
 
 ## M7 Pane polish and preferences (FR-3.5, FR-3.6)
-- [ ] M7.1 `/rmod` pane with Refresh, Reset and Hide/Show band buttons with hotkeys, plus `$.store` persistence and re-seeding after `/clear`. **Decision needed:** `claude plugin validate` (2.1.295) lists a `classic.SessionStart` hook as a *gating hook*, which `/verify` fails. Either re-seed from the poll tick the way M3 self-heals (fresh state has no `checkedAt`), or agree an exception in SECURITY.md §4.
-- [ ] M7.2 Narrow-terminal and long-name layout tests.
+- [x] M7.1 `/rmod` pane with Refresh, Reset and Hide/Show band buttons with hotkeys (r, z, h), `$.store` persistence (a saved choice wins over `showBand`), and re-seeding after `/clear` from the poll tick. No `classic.SessionStart` hook, so no extra gating line.
+- [x] M7.2 Narrow-terminal and long-name layout tests.
 
 ## M8 Hardening and release
 - [ ] M8.1 `qa-tester`: traceability is 100% (automated or manual) for every FR and NFR ID.

@@ -10,7 +10,7 @@ import type { Mode } from './servers'
 
 export const START = { surface: 'terminal', isInteractive: true, cwd: '/work' } as const
 
-export const boot = (on: On, servers: { ollama: Mode; lmstudio: Mode }, env: Record<string, string> = {}) => {
+export const boot = (on: On, servers: { ollama: Mode; lmstudio: Mode }, env: Record<string, string> = {}, store: Record<string, unknown> = {}) => {
   const clock: MockClock = mock.clock(on)
   const toasts: string[] = []
   const registered: string[] = []
@@ -25,7 +25,21 @@ export const boot = (on: On, servers: { ollama: Mode; lmstudio: Mode }, env: Rec
     return { value: undefined }
   })
   mock.env(on, env)
-  return { clock, toasts, registered, servers: fakeServers(on, clock, servers) }
+  // $.store as a Map the test can read back; $.ui.open as a pane that is placed.
+  const saved = new Map<string, unknown>(Object.entries(store))
+  on('store.get', ($, e) => ({ value: saved.get(e.key) }))
+  on('store.set', ($, e) => {
+    saved.set(e.key, e.value)
+    return { value: undefined }
+  })
+  const opened: string[] = []
+  /** Set `pane.placed = false` to act as a surface that draws nothing (claude -p, VS Code). */
+  const pane = { placed: true }
+  on('ui.open', ($, e) => {
+    opened.push(e.id)
+    return { value: pane.placed ? { isPlaced: true as const } : { isPlaced: false as const, reason: 'no-surface' as const } }
+  })
+  return { clock, toasts, registered, saved, opened, pane, servers: fakeServers(on, clock, servers) }
 }
 
 /** What /rmod-status says about one backend: the kit has no state accessor, so tests read what a user would. */

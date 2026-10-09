@@ -32,5 +32,10 @@ test('NFR-2 session.start still passes on when command registration fails', asyn
 
   const r = await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
   expect(r).toEqual({ cwd: '/work' })
-  expect(logs).toEqual(['rmod: could not register /rmod-status', 'rmod: could not register /rmod-reset', 'rmod: could not register /rmod-refresh'])
+  expect(logs).toEqual([
+    'rmod: could not register /rmod',
+    'rmod: could not register /rmod-status',
+    'rmod: could not register /rmod-reset',
+    'rmod: could not register /rmod-refresh',
+  ])
 })
