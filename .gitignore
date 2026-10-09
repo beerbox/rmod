@@ -1,0 +1,77 @@
+# ─── Secrets: never commit ───────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.crt
+*.cer
+id_rsa*
+id_ed25519*
+*.ppk
+.netrc
+.npmrc
+.pypirc
+secrets/
+secret/
+credentials*
+*credentials*.json
+*.secret
+*.secrets
+*token*.txt
+*.kdbx
+.aws/
+.ssh/
+.gnupg/
+.docker/config.json
+
+# ─── Claude Code: personal / generated ───────────────────────────────
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/*.local.*
+.claude/worktrees/
+# Type declarations Claude Code regenerates for the installed build at every load
+.claude-plugin/types/
+# Debug logs and transcripts must not leak into git (they can contain prompts)
+*.jsonl
+claude-debug*.log
+
+# ─── Node / TypeScript tooling ───────────────────────────────────────
+node_modules/
+*.tsbuildinfo
+dist/
+build/
+coverage/
+.npm/
+.eslintcache
+
+# ─── Logs, caches, OS & editor files ─────────────────────────────────
+*.log
+logs/
+tmp/
+.cache/
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Icon?
+.Spotlight-V100
+.Trashes
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ─── Python (PyCharm project dir; scratch scripts) ───────────────────
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# ─── Raw captures from real servers: keep only sanitized fixtures ────
+tests/fixtures/raw/

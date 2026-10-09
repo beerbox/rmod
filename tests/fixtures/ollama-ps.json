@@ -1,0 +1,3 @@
+{"models":[
+ {"name":"llama3.2:3b","model":"llama3.2:3b","size":3155164160,"digest":"sha256:0000000000000000000000000000000000000000000000000000000000000000","details":{"parent_model":"","format":"gguf","family":"llama","families":["llama"],"parameter_size":"3.2B","quantization_level":"Q4_K_M"},"expires_at":"2026-10-09T11:20:00.000000000Z","size_vram":3155164160,"context_length":4096}
+]}

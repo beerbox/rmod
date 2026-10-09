@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# rmod pre-commit: block secrets and private files from being committed.
+# Enable once per clone:  git config core.hooksPath .githooks
+set -euo pipefail
+
+fail() { printf '\033[31mpre-commit: %s\033[0m\n' "$1" >&2; exit 1; }
+
+# 1. Files that must never be committed, whatever their content.
+blocked_regex='(^|/)(\.env(\..*)?|.*\.pem|.*\.key|.*\.p12|.*\.pfx|id_rsa.*|id_ed25519.*|\.netrc|\.npmrc|CLAUDE\.local\.md|settings\.local\.json|.*\.jsonl)$'
+allowed_regex='(^|/)\.env\.example$'
+while IFS= read -r -d '' f; do
+  if [[ "$f" =~ $blocked_regex ]] && ! [[ "$f" =~ $allowed_regex ]]; then
+    fail "refusing to commit '$f' (secret/private file pattern). Unstage it: git restore --staged '$f'"
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+# 2. Generated type declarations stay out of git.
+if git diff --cached --name-only --diff-filter=ACMR | grep -q '^\.claude-plugin/types/'; then
+  fail "refusing to commit generated .claude-plugin/types/ (regenerated per Claude Code build)"
+fi
+
+# 3. Content scan with gitleaks (required).
+if ! command -v gitleaks >/dev/null 2>&1; then
+  fail "gitleaks not installed. Install it: brew install gitleaks"
+fi
+gitleaks git --pre-commit --redact --staged --verbose || fail "gitleaks found a potential secret. Remove it (and rotate it if it was real)."
+
+exit 0

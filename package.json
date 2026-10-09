@@ -1,0 +1,12 @@
+{
+  "name": "rmod",
+  "private": true,
+  "description": "Dev tooling for the rmod Claude Code mod. The mod itself has no runtime dependencies.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

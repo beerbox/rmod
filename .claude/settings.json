@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(claude --version)",
+      "Bash(claude plugin validate *)",
+      "Bash(claude plugin test)",
+      "Bash(claude plugin test *)",
+      "Bash(npx tsc -p .)",
+      "Bash(npx tsc *)",
+      "Bash(gitleaks git *)",
+      "Bash(gitleaks dir *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(curl -sS --max-time 3 http://127.0.0.1:11434/*)",
+      "Bash(curl -sS --max-time 3 http://127.0.0.1:1234/*)",
+      "Bash(lsof -nP -iTCP:11434 -sTCP:LISTEN)",
+      "Bash(lsof -nP -iTCP:1234 -sTCP:LISTEN)",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:docs.claude.com)",
+      "WebFetch(domain:docs.ollama.com)",
+      "WebFetch(domain:lmstudio.ai)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ],
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git config *)",
+      "Bash(npm install *)",
+      "Bash(npm i *)",
+      "Bash(npm ci *)",
+      "Bash(brew *)",
+      "Bash(ollama *)",
+      "Bash(lms *)",
+      "Edit(.gitignore)",
+      "Edit(.githooks/**)",
+      "Edit(.claude/settings.json)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(!.env.example)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(secrets/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.netrc)",
+      "Read(~/.npmrc)",
+      "Read(~/.config/gh/**)",
+      "Read(~/Library/Keychains/**)",
+      "Bash(sudo *)",
+      "Bash(rm -rf *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git commit --no-verify *)",
+      "Bash(git commit -n *)",
+      "Bash(security *)",
+      "Bash(printenv)",
+      "Bash(printenv *)",
+      "Bash(env)",
+      "Bash(curl * | sh)",
+      "Bash(curl * | bash)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'rmod dev context: installed Claude Code %s. Mod API source of truth = .claude-plugin/types/claude-code/index.d.ts (regenerated per build by loading the mod with --plugin-dir). Live docs index: https://code.claude.com/docs/llms.txt. If docs/REFERENCES.md was last verified over 14 days ago or the version changed, run /docs-check first.\\n' \"$(claude --version 2>/dev/null || echo unknown)\""
+          }
+        ]
+      }
+    ]
+  }
+}

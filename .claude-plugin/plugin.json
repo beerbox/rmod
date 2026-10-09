@@ -1,0 +1,78 @@
+{
+  "name": "rmod",
+  "displayName": "rmod",
+  "version": "0.0.1",
+  "description": "Local LLM monitor: shows whether Ollama and LM Studio are listening, counts this session's local requests, and lists local models.",
+  "author": { "name": "Radek" },
+  "license": "MIT",
+  "keywords": ["ollama", "lm-studio", "local-llm", "monitor", "mod"],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "enableOllama": {
+      "type": "boolean",
+      "title": "Monitor Ollama",
+      "description": "Probe the local Ollama server. When off, Ollama shows as 'off' and is never probed.",
+      "default": true
+    },
+    "ollamaUrl": {
+      "type": "string",
+      "title": "Ollama URL",
+      "description": "Loopback URL of Ollama (127.0.0.1, ::1 or localhost only). Leave empty to use OLLAMA_HOST if it is loopback, else http://127.0.0.1:11434.",
+      "default": ""
+    },
+    "enableLmStudio": {
+      "type": "boolean",
+      "title": "Monitor LM Studio",
+      "description": "Probe the local LM Studio server. When off, LM Studio shows as 'off' and is never probed.",
+      "default": true
+    },
+    "lmstudioUrl": {
+      "type": "string",
+      "title": "LM Studio URL",
+      "description": "Loopback URL of the LM Studio server (127.0.0.1, ::1 or localhost only).",
+      "default": "http://127.0.0.1:1234"
+    },
+    "lmstudioApiToken": {
+      "type": "string",
+      "title": "LM Studio API token",
+      "description": "Optional. Only needed when LM Studio's 'require API token' is on. Stored in the macOS Keychain and sent only to the LM Studio URL.",
+      "sensitive": true
+    },
+    "pollIntervalSec": {
+      "type": "number",
+      "title": "Poll interval (seconds)",
+      "description": "How often to probe each server.",
+      "default": 5,
+      "min": 2,
+      "max": 300
+    },
+    "probeTimeoutMs": {
+      "type": "number",
+      "title": "Probe timeout (ms)",
+      "description": "A probe with no answer within this time counts as not listening.",
+      "default": 1500,
+      "min": 200,
+      "max": 10000
+    },
+    "modelsRefreshSec": {
+      "type": "number",
+      "title": "Model list refresh (seconds)",
+      "description": "How often to refresh the model inventory while a server is up.",
+      "default": 30,
+      "min": 10,
+      "max": 3600
+    },
+    "showBand": {
+      "type": "boolean",
+      "title": "Show status band",
+      "description": "Initial default for the band above the prompt. The pane's Hide/Show button overrides it and is remembered.",
+      "default": true
+    },
+    "localMcpToolPattern": {
+      "type": "string",
+      "title": "Local MCP tool pattern",
+      "description": "Regular expression for MCP tool names that count as local requests.",
+      "default": "^mcp__(ollama|lmstudio|lm-studio)[^_]*__"
+    }
+  }
+}
