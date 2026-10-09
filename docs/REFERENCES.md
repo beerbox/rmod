@@ -55,3 +55,4 @@ Ollama / LM Studio versions verified: Ollama 0.40.2 (live probe 2026-10-09) · L
 - 2026-10-09 · initial · docs written against Claude Code 2.1.295 types and live docs · (none)
 - 2026-10-09 · Ollama 0.40.2 probe · `/api/tags` entries add `capabilities[]` and `details.runner`; MLX models report `parameter_size` and `quantization_level` as `""` (treat as unknown) · LOCAL_SERVERS.md, tests/fixtures/
 - 2026-10-09 · lmstudio.ai list-models page · `quantization` may be null and its fields nullable; `params_string` nullable; embedding entries omit `architecture`, `capabilities`, `description` · LOCAL_SERVERS.md, tests/fixtures/
+- 2026-10-09 · ollama envconfig.Host() source · `OLLAMA_HOST` with an explicit scheme and no port defaults to 80 (http) or 443 (https), not 11434 · url-guard.ts, LOCAL_SERVERS.md

@@ -113,3 +113,4 @@ Colours: green means up, red means down, yellow means auth/degraded, dim means u
 2. Whether `TurnStepResult.usage.model` reports the local model name for Ollama and LM Studio Anthropic-compatible endpoints.
 3. Whether `$.http.fetch` rejects or returns a status on ECONNREFUSED (the design handles both).
 4. Whether `$.env.get` sees `env` from settings files (Claude Code applies them to the process env, so expect yes).
+5. Whether `$.http.fetch` follows redirects, and whether it keeps `Authorization` across hosts. This gates M3.2 (SECURITY.md §3, Redirects).

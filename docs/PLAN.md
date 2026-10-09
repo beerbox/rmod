@@ -14,7 +14,7 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 - [x] M1.3 First kit test: `FR-6.1 /rmod-status answers`. `claude plugin validate .` passes, and `calls:` is within the allowlist.
 
 ## M2 Pure core (unit tests only)
-- [ ] M2.1 `url-guard.ts` plus exhaustive tests, including the bypass cases in SECURITY.md §3 (FR-6.3, NFR-1).
+- [x] M2.1 `url-guard.ts` plus exhaustive tests, including the bypass cases in SECURITY.md §3 (FR-6.3, NFR-1).
 - [ ] M2.2 `config.ts` (also the FR-6.2 tests deferred from M1.1: defaults, overrides via `test(name, { options })`, sensitive token kept out of `Config` and every output): defaults, ranges, `OLLAMA_HOST` handling and regex validation (FR-1.1, FR-6.2, FR-6.3).
 - [ ] M2.3 `parse-ollama.ts` and `parse-lmstudio.ts` against fixtures, malformed input and oversize lists (FR-5.1, FR-5.4).
 - [ ] M2.4 `stats.ts`: ring buffer, avg/p50/p95, tok/s, `byModel` cap (FR-4.2, NFR-3).

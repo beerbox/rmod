@@ -11,6 +11,8 @@ All requests are loopback HTTP GETs with no body. Use `127.0.0.1`, not `localhos
 | loaded models | `GET /api/ps` → `{ models: [{ name, model, size, digest, details{…}, expires_at, size_vram, context_length }] }` | Loaded means present in this list. |
 | Claude Code via Ollama | `ANTHROPIC_BASE_URL=http://localhost:11434` `ANTHROPIC_AUTH_TOKEN=ollama` | Serves `/v1/messages`. The local server ignores the key. |
 
+`OLLAMA_HOST` parsing (ollama `envconfig.Host()`, checked 2026-10-09): no scheme means `http` and port 11434. An explicit `http://` without a port means 80, and `https://` means 443. An empty host means `127.0.0.1`. rmod copies these defaults.
+
 The local server needs no auth. The Ollama macOS app runs in the menu bar, and `ollama serve` runs it headless.
 
 ## LM Studio (default `http://127.0.0.1:1234`)

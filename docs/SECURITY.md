@@ -29,7 +29,14 @@ Current Anthropic guidance on mods and plugin trust: `https://code.claude.com/do
 
 Accept only when every check passes: `new URL(raw)` parses, the protocol is `http:` or `https:`, `username` and `password` are empty, the hostname is in the set {`127.0.0.1`, `localhost`, `[::1]`/`::1`}, and the port is empty or an integer 1–65535. Strip any path, query or hash from base URLs, and build endpoint URLs only from constant path strings.
 
-These must be rejected (tests in M2.1): `http://127.0.0.1@evil.com`, `http://evil.com#@127.0.0.1`, `http://localhost.evil.com`, `http://127.0.0.1.nip.io`, `http://2130706433`, `http://0x7f.0.0.1`, `http://0177.0.0.1`, `http://[::ffff:7f00:1]`, `http://0.0.0.0`, `http://192.168.1.10`, `file:///etc/passwd`, `javascript:…`, and an empty string. `OLLAMA_HOST` values (`0.0.0.0:11434` or a bare `host:port`) are normalised, then guarded. `0.0.0.0` maps to `127.0.0.1` for probing, and the pane notes that Ollama is exposed on all interfaces.
+These must be rejected (tests in M2.1): `http://127.0.0.1@evil.com`, `http://evil.com#@127.0.0.1`, `http://localhost.evil.com`, `http://127.0.0.1.nip.io`, `http://2130706433`, `http://0x7f.0.0.1`, `http://0177.0.0.1`, `http://[::ffff:7f00:1]`, `http://0.0.0.0`, `http://192.168.1.10`, `file:///etc/passwd`, `javascript:…`, and an empty string. `OLLAMA_HOST` values (`0.0.0.0:11434` or a bare `host:port`) are normalised, then guarded. `0.0.0.0` maps to `127.0.0.1` and `[::]` to `[::1]` for probing, and the pane notes that Ollama is exposed on all interfaces.
+
+The guard checks the raw authority text against those exact spellings as well as the parsed URL, because WHATWG `URL` turns `2130706433`, `0x7f.0.0.1` and `0177.0.0.1` into `127.0.0.1`. `localhost` is accepted by spelling, but where it connects depends on `/etc/hosts`, so the defaults use `127.0.0.1`. Endpoint paths can't contain `.` or `..` segments.
+
+**Redirects (gate for M3.2, open):** the guard checks only the URL rmod asks for. Neither the 2.1.295 types nor the live reference say whether `$.http.fetch` follows 3xx redirects, or keeps `Authorization` when a redirect goes to another host. Any local process on the port could answer `302 Location: http://evil.example/`. Before any probe sends the LM Studio token:
+1. Settle the behaviour with a manual probe against a local 302 server that redirects to another loopback port, with no internet target. Record the result here.
+2. Treat any 3xx response as *degraded*, and never follow it.
+3. Send the token only to a URL whose token-less probe this session returned 2xx or 401/403 (never 3xx). If redirects turn out to be followed with headers kept, add a guard on the final URL, or drop token support, before release.
 
 ## 4. `$` call allowlist (compare with the output of `claude plugin validate .`)
 
