@@ -18,7 +18,7 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 - [x] M2.2 `config.ts` (also the FR-6.2 tests deferred from M1.1: defaults, overrides via `test(name, { options })`, sensitive token kept out of `Config` and every output): defaults, ranges, `OLLAMA_HOST` handling and regex validation (FR-1.1, FR-6.2, FR-6.3).
 - [x] M2.3 `parse-ollama.ts` and `parse-lmstudio.ts` against fixtures, malformed input and oversize lists (FR-5.1, FR-5.4).
 - [x] M2.4 `stats.ts`: ring buffer, avg/p50/p95, tok/s, `byModel` cap (FR-4.2, NFR-3).
-- [ ] M2.5 `attribution.ts` (also: widen the `localMcpToolPattern` default. MCP server names can contain `_`, e.g. `mcp__claude_ai_Claude_Docs__…`, so `[^_]*__` misses `mcp__ollama_local__x`. Update the manifest, config.ts and SPEC FR-4.1b together. Known limit: LM Studio requests may name a model by its `loaded_instances[].id` rather than `key`, so check what `usage.model` reports before relying on name matching for LM Studio): base URL and model-name matching, and the tool-call classifier with positive and negative cases (FR-4.1).
+- [x] M2.5 `attribution.ts` (also: widen the `localMcpToolPattern` default. MCP server names can contain `_`, e.g. `mcp__claude_ai_Claude_Docs__…`, so `[^_]*__` misses `mcp__ollama_local__x`. Update the manifest, config.ts and SPEC FR-4.1b together. Known limit: LM Studio requests may name a model by its `loaded_instances[].id` rather than `key`, so check what `usage.model` reports before relying on name matching for LM Studio): base URL and model-name matching, and the tool-call classifier with positive and negative cases (FR-4.1).
 
 ## M3 Server detection (FR-1, FR-2)
 - [ ] M3.1 Poll loop in `session.start` with timer cancel-on-reload, no overlapping probes, and the timeout race.
@@ -37,7 +37,7 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 
 ## M6 Live request counter (FR-4)
 - [ ] M6.1 `turn.step` instrumentation (count, in-flight, latency, TTFT, tokens), with attribution. Time TTFT to the first `text`/`thinking`/`tool` chunk, not an engine or envelope chunk (check the `TurnStepChunk` kinds in the types), and read `outTokens` from `TurnUsage` (check the field name). Wrap every stats update in try/catch (NFR-2).
-- [ ] M6.2 `tool.call` instrumentation for Bash, WebFetch and MCP patterns. Never record the command text.
+- [ ] M6.2 `tool.call` instrumentation for Bash, WebFetch and MCP patterns. Never record the command text. Pass `e` itself as `input` (the arguments are top level on `e`). Skip Bash with `run_in_background`. Check by hand whether WebFetch fetches loopback `http://` at all (it may refuse or upgrade it).
 - [ ] M6.3 Pane stats table and band summary. `/rmod-reset`. State survives hot reload and resets on `/clear`.
 - [ ] M6.4 Manual end-to-end: run Claude Code against Ollama via `ANTHROPIC_BASE_URL=http://127.0.0.1:11434` (TESTING.md §5) and against LM Studio, and check that the counts match the number of requests.
 

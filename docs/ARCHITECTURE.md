@@ -14,7 +14,8 @@ hooks/lib/probe.ts           classifyProbe(outcome) → Health/ProbeResult (stat
 hooks/lib/models.ts          parseJson, clean* clamps, finalize (dedupe, loaded first, cap 200) [pure]
 hooks/lib/parse-ollama.ts    parseVersion / parseTags / parsePs / mergeOllama(tagsBody, psBody) [pure]
 hooks/lib/parse-lmstudio.ts  parseV1Models / parseOpenAiModels                           [pure]
-hooks/lib/attribution.ts     classifyToolCall(e, cfg), backendForModelStep(baseUrl, model, inventories) [pure]
+hooks/lib/shell.ts           simpleCommands / programOf / inlineScript: quote-aware Bash reader [pure]
+hooks/lib/attribution.ts     targetsOf(cfg), classifyToolCall(tool, e, targets, re), backendForModelStep(baseUrl, model, targets, inv) [pure]
 hooks/lib/stats.ts           ring buffer, avg/p50/p95, tok/s; immutable updates          [pure]
 hooks/ui/band.tsx            AbovePrompt tree (full + compact)                            [pure given data + elements]
 hooks/ui/pane.tsx            Pane tree: status, stats table, model lists, buttons

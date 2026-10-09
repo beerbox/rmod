@@ -5,11 +5,16 @@
 // pasted into the wrong field). The LM Studio token is returned apart from
 // Config, so Config can be logged or compared without leaking it.
 
-import { guardBaseUrl, normalizeOllamaHost } from './url-guard'
+import { guardBaseUrl, normalizeOllamaHost, portOf } from './url-guard'
 
 export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434'
 export const DEFAULT_LMSTUDIO_URL = 'http://127.0.0.1:1234'
-export const DEFAULT_MCP_PATTERN = '^mcp__(ollama|lmstudio|lm-studio)[^_]*__'
+/**
+ * An MCP tool whose server name (the part between `mcp__` and the next `__`) contains "ollama" or
+ * "lm studio" (lmstudio, lm-studio, lm_studio) in any letter case. Server names may hold single
+ * underscores (plugin servers are `mcp__plugin_<plugin>_<server>__<tool>`).
+ */
+export const DEFAULT_MCP_PATTERN = '^mcp__(?:[A-Za-z0-9-]|_(?!_))*(?:[Oo][Ll][Ll][Aa][Mm][Aa]|[Ll][Mm][-_]?[Ss][Tt][Uu][Dd][Ii][Oo])(?:[A-Za-z0-9-]|_(?!_))*__'
 
 const MAX_PATTERN_LENGTH = 200
 const MAX_TOKEN_LENGTH = 4096
@@ -156,6 +161,9 @@ export const parseConfig = (options: Options, ollamaHostEnv: string | undefined)
 
   const lmField = urlField(options, 'lmstudioUrl', DEFAULT_LMSTUDIO_URL, warn)
   const lmstudioUrl = lmField.base ?? DEFAULT_LMSTUDIO_URL
+  if (enableOllama && enableLmStudio && portOf(ollamaUrl) === portOf(lmstudioUrl)) {
+    warn('rmod: ollamaUrl and lmstudioUrl use the same port; requests to it count as Ollama')
+  }
 
   const config: Config = {
     enableOllama,

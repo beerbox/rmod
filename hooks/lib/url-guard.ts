@@ -68,6 +68,13 @@ export const guardBaseUrl = (raw: string): GuardResult => {
   return typeof r === 'string' ? { ok: false, reason: r } : { ok: true, base: baseOf(r) }
 }
 
+/** The port a loopback URL talks to, with the scheme default when it names none; undefined when not loopback. */
+export const portOf = (raw: string): number | undefined => {
+  const r = check(raw)
+  if (typeof r === 'string') return undefined
+  return r.port ?? (r.scheme === 'https' ? 443 : 80)
+}
+
 export const isLoopbackUrl = (raw: string): boolean => typeof check(raw) !== 'string'
 
 /**

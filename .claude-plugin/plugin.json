@@ -71,8 +71,8 @@
     "localMcpToolPattern": {
       "type": "string",
       "title": "Local MCP tool pattern",
-      "description": "Regular expression for MCP tool names that count as local requests.",
-      "default": "^mcp__(ollama|lmstudio|lm-studio)[^_]*__"
+      "description": "Regular expression (no slashes or flags) for MCP tool names that count as local requests. The default matches any server whose name contains ollama or lm studio (narrow it if, e.g., an ollama-docs server is not local). The backend is picked from the server name, else the only enabled backend.",
+      "default": "^mcp__(?:[A-Za-z0-9-]|_(?!_))*(?:[Oo][Ll][Ll][Aa][Mm][Aa]|[Ll][Mm][-_]?[Ss][Tt][Uu][Dd][Ii][Oo])(?:[A-Za-z0-9-]|_(?!_))*__"
     }
   }
 }
