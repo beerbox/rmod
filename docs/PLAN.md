@@ -46,6 +46,6 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 - [x] M7.2 Narrow-terminal and long-name layout tests.
 
 ## M8 Hardening and release
-- [ ] M8.1 `qa-tester`: traceability is 100% (automated or manual) for every FR and NFR ID.
+- [x] M8.1 `qa-tester`: traceability is 100% (automated or manual) for every FR and NFR ID.
 - [ ] M8.2 `/security-review all` returns SHIP.
 - [ ] M8.3 README usage and screenshots, CHANGELOG, then `/release minor` to v0.1.0 or later. Optionally add a marketplace.json for sharing.

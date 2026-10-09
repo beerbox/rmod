@@ -85,7 +85,7 @@ Anything else needs a written justification in this file, approved by the user, 
 
 ## 8. Release checklist
 
-- [ ] `claude plugin validate .` passes, and calls, env and events ⊆ the §4 allowlist, with no gating hooks.
+- [ ] `claude plugin validate .` passes, and calls, env and events ⊆ the §4 allowlist. The only gating line is `gating hook without .catch: tool.call`, appearing once (§4 exception).
 - [ ] The URL guard tests in §3 all pass, and fetch-recording tests show only loopback URLs.
 - [ ] Grep proves no `e.command`, `e.text`, prompt or result text is stored, logged or displayed.
 - [ ] The token is `sensitive`, is only in the Authorization header to `lmstudioUrl`, and never appears in fixtures.
