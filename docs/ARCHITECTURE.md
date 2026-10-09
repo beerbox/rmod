@@ -52,7 +52,8 @@ export type ModelInfo = { id: string; loaded: boolean | null; sizeBytes?: number
 export type BackendStatus = { health: Health; version?: string; probeMs?: number; checkedAt?: number; error?: ProbeError;
                               models: ModelInfo[]; modelsTruncated: number; modelsAt?: number; modelsError?: ProbeError }
 export type Stats = { total: number; model: number; tool: number; inFlight: number; ok: number; failed: number;
-                      latMs: number[]; ttftMs: number[]; outTokens: number; genMs: number; lastAt?: number; byModel: Record<string, number> }
+                      latMs: number[]; ttftMs: number[]; outTokens: number; rateTokens: number; genMs: number; lastAt?: number;
+                      byModel: Record<string, number>; byModelOther: number }
 declare module 'claude-code' {
   interface PluginState {
     rmod: { ollama: BackendStatus; lmstudio: BackendStatus; statsOllama: Stats; statsLmstudio: Stats; bandHidden: boolean;
@@ -60,7 +61,7 @@ declare module 'claude-code' {
   }
 }
 ```
-Arrays are `readonly` in the real contract. Keys stay flat and literal so `claude plugin validate` can check them. Arrays are capped at 200 (`latMs`, `ttftMs`, `models`), and `byModel` keeps at most 50 keys.
+Arrays are `readonly` in the real contract. Keys stay flat and literal so `claude plugin validate` can check them. Arrays are capped at 200 (`latMs`, `ttftMs`, `models`), and `byModel` keeps at most 50 keys (requests for further models add to `byModelOther`).
 
 ## 4. Flows
 

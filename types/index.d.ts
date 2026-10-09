@@ -1,5 +1,5 @@
 // rmod's $.state contract (docs/ARCHITECTURE.md §3). Self-contained: no imports.
-// Bounds: latMs, ttftMs and models hold at most 200 entries; byModel at most 50 keys.
+// Bounds: latMs, ttftMs and models hold at most 200 entries; byModel at most 50 keys (the rest add to byModelOther).
 
 export type BackendId = 'ollama' | 'lmstudio'
 
@@ -46,11 +46,16 @@ export type Stats = {
   failed: number
   latMs: readonly number[]
   ttftMs: readonly number[]
+  /** All output tokens reported by usage. */
   outTokens: number
+  /** Output tokens of the requests whose generation time is in genMs: tok/s = rateTokens / genMs. */
+  rateTokens: number
   genMs: number
   lastAt?: number
   /** Keyed by untrusted model ids: write with spreads/Object.fromEntries, never obj[id] =. */
   byModel: Readonly<Record<string, number>>
+  /** Requests for models past the 50th distinct one. */
+  byModelOther: number
 }
 
 declare module 'claude-code' {
