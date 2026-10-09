@@ -19,6 +19,10 @@ export type ModelInfo = {
   params?: string
   quant?: string
   kind?: 'llm' | 'embedding'
+  /** Ollama /api/ps: bytes held in GPU memory. */
+  vramBytes?: number
+  /** Ollama /api/ps: when the model unloads, epoch ms. */
+  expiresAt?: number
 }
 
 export type BackendStatus = {

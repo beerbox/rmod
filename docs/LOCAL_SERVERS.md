@@ -7,8 +7,8 @@ All requests are loopback HTTP GETs with no body. Use `127.0.0.1`, not `localhos
 | Purpose | Request | Notes |
 |---|---|---|
 | liveness and version | `GET /api/version` → `{ "version": "x.y.z" }` | Any 2xx means up. `GET /` returns the plain text "Ollama is running". |
-| available models | `GET /api/tags` → `{ models: [{ name, model, modified_at, size, digest, details: { format, family, families, parameter_size, quantization_level, runner? } , capabilities? }] }` | Seen on 0.40.2: `capabilities[]` (e.g. `completion`, `tools`, `embedding`) and `details.runner` (`mlx`). MLX models report `parameter_size` / `quantization_level` as `""`, so treat empty strings as unknown. |
-| loaded models | `GET /api/ps` → `{ models: [{ name, model, size, digest, details{…}, expires_at, size_vram, context_length }] }` | Loaded means present in this list. |
+| available models | `GET /api/tags` → `{ models: [{ name, model, modified_at, size, digest, details: { format, family, families, parameter_size, quantization_level, runner? } , capabilities? }] }` | Seen on 0.40.2: `capabilities[]` (e.g. `completion`, `tools`, `embedding`) and `details.runner` (`mlx`). MLX models report `parameter_size` / `quantization_level` as `""`, so treat empty strings as unknown. Cloud models carry `remote_model` and `remote_host` (live docs): rmod skips them, because remote servers are out of scope, and never stores the host. |
+| loaded models | `GET /api/ps` → `{ models: [{ name, model, size, digest, details{…}, expires_at, size_vram, context_length }] }` | Loaded means present in this list. `size` is the in-memory size (larger than the disk `size` in `/api/tags`). rmod keeps the disk size, plus `size_vram` and `expires_at`, which has nanosecond precision, cut to ms. |
 | Claude Code via Ollama | `ANTHROPIC_BASE_URL=http://localhost:11434` `ANTHROPIC_AUTH_TOKEN=ollama` | Serves `/v1/messages`. The local server ignores the key. |
 
 `OLLAMA_HOST` parsing (ollama `envconfig.Host()`, checked 2026-10-09): no scheme means `http` and port 11434. An explicit `http://` without a port means 80, and `https://` means 443. An empty host means `127.0.0.1`. rmod copies these defaults.

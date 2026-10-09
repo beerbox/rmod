@@ -14,7 +14,7 @@ The full strategy and scenario matrix are in `docs/TESTING.md`. Before writing k
 - **Register every stub with `on(...)` before the first call on the test's `$`.** Otherwise the kit throws.
 - `session.start` doesn't run by itself. Raise it with `$.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })` after stubbing `session.start`, `command.register` and the timer calls the hook makes.
 - Stubs for mods API calls return `{ value }` (or `{ deny: 'reason' }` to make the call reject). Stubs for events return the event's own result (`{ result }` for `tool.call`, `{ cwd }` for `session.start`).
-- **Fake servers**: stub `http.fetch` and branch on `e.url`, using the JSON in `tests/fixtures/`. Simulate "connection refused" with `{ deny: 'ECONNREFUSED' }`. Simulate a hang with a stub that awaits `clock.sleep(...)` on a `mock.clock`.
+- **Fake servers**: stub `http.fetch` and branch on `e.url`, using the fixture text from `tests/fixtures/index.ts`. The kit imports only code files, so that file is generated from the `*.json` fixtures with `npm run fixtures`. Never edit it by hand, and run the generator after changing any fixture. Simulate "connection refused" with `{ deny: 'ECONNREFUSED' }`. Simulate a hang with a stub that awaits `clock.sleep(...)` on a `mock.clock`.
 - **Time**: always use `mock.clock(on)` and drive it with `advance`, `set` and `settle`. Never use real sleeps.
 - **Env**: `mock.env(on, { ANTHROPIC_BASE_URL: 'http://127.0.0.1:11434' })`.
 - **turn.step stubs are async generators**. Read the returned stream to its end.

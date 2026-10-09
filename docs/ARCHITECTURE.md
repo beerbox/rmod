@@ -11,7 +11,8 @@ hooks/register.tsx           wires events → lib → state; registers commands;
 hooks/lib/config.ts          parse + validate options (ranges, loopback, regex) → Config  [pure]
 hooks/lib/url-guard.ts       isLoopbackUrl(), buildUrl(base, path)                        [pure]
 hooks/lib/probe.ts           classifyProbe(outcome) → Health/ProbeResult (status, error, timeout) [pure; the fetch itself is in register.tsx]
-hooks/lib/parse-ollama.ts    parseVersion / parseTags / parsePs  → typed, clamped         [pure]
+hooks/lib/models.ts          parseJson, clean* clamps, finalize (dedupe, loaded first, cap 200) [pure]
+hooks/lib/parse-ollama.ts    parseVersion / parseTags / parsePs / mergeOllama(tagsBody, psBody) [pure]
 hooks/lib/parse-lmstudio.ts  parseV1Models / parseOpenAiModels                           [pure]
 hooks/lib/attribution.ts     classifyToolCall(e, cfg), backendForModelStep(baseUrl, model, inventories) [pure]
 hooks/lib/stats.ts           ring buffer, avg/p50/p95, tok/s; immutable updates          [pure]
@@ -47,7 +48,7 @@ tests/                       unit/*.test.ts (lib), kit/*.test.ts (hooks, UI), fi
 export type BackendId = 'ollama' | 'lmstudio'
 export type Health = 'unknown' | 'up' | 'auth' | 'degraded' | 'down' | 'off'
 export type ProbeError = 'refused' | 'timeout' | 'policy' | 'http' | 'parse' | 'config'   // rmod's words only, never server text
-export type ModelInfo = { id: string; loaded: boolean | null; sizeBytes?: number; params?: string; quant?: string; kind?: 'llm' | 'embedding' }
+export type ModelInfo = { id: string; loaded: boolean | null; sizeBytes?: number; params?: string; quant?: string; kind?: 'llm' | 'embedding'; vramBytes?: number; expiresAt?: number }
 export type BackendStatus = { health: Health; version?: string; probeMs?: number; checkedAt?: number; error?: ProbeError;
                               models: ModelInfo[]; modelsTruncated: number; modelsAt?: number; modelsError?: ProbeError }
 export type Stats = { total: number; model: number; tool: number; inFlight: number; ok: number; failed: number;
@@ -100,6 +101,7 @@ Colours: green means up, red means down, yellow means auth/degraded, dim means u
 
 ## 6. Known constraints and decisions
 
+- `HttpResponse.text` arrives fully buffered by the host, with no size cap in the types. `parseJson` refuses bodies over 4 MB, which bounds the parse work but not the transfer.
 - `$.http.fetch` has **no timeout option**, so `Promise.race` it with `$.clock.sleep(timeoutMs)`. A late reply is ignored.
 - Static analysis forbids passing `$` to imported functions. Pure libs receive data, and `register.tsx` does the I/O. Small top-level helpers *in the same file* may take `$`, which validate reports as `(via fn)`.
 - Use `127.0.0.1` as the default, not `localhost`. On macOS `localhost` can resolve to `::1`, while Ollama binds IPv4 by default.

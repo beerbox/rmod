@@ -4,9 +4,14 @@
   "description": "Dev tooling for the rmod Claude Code mod. The mod itself has no runtime dependencies.",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "fixtures": "node scripts/gen-fixtures.mjs",
+    "fixtures:check": "node scripts/gen-fixtures.mjs --check"
   },
   "devDependencies": {
     "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=20.11"
   }
 }

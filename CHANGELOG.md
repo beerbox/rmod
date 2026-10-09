@@ -11,6 +11,7 @@ All notable changes to rmod are documented here. Format: [Keep a Changelog](http
 - Skeleton mod: manifest with the full `userConfig` (FR-6.2), the `$.state` contract in `types/index.d.ts`, and a hooks module that registers `/rmod-status` (FR-6.1).
 - Loopback-only URL guard (`hooks/lib/url-guard.ts`, NFR-1): exact-spelling host check that resists numeric, encoded, IDNA and userinfo bypasses, canonical bases, constant endpoint paths, and `OLLAMA_HOST` normalisation with Ollama's default ports.
 - Config parsing (`hooks/lib/config.ts`, FR-1.1, FR-6.2, FR-6.3): validated options with per-field fallback and one log line each, `OLLAMA_HOST` support, a ReDoS guard on the MCP pattern, and the LM Studio token kept apart from config (printable ASCII only, withheld when `lmstudioUrl` is rejected). `/rmod-status` shows the resolved URLs.
+- Response parsers (`hooks/lib/models.ts`, `parse-ollama.ts`, `parse-lmstudio.ts`, FR-1.3, FR-5.1, FR-5.4). They validate untrusted JSON, strip unsafe Unicode, clamp, dedupe and cap at 200 with a `+N more` count. Loaded models come first, with VRAM and expiry for Ollama. Cloud models are skipped. Fixture text is generated for tests (`npm run fixtures`).
 
 ### Fixed
 - Docs and dev instructions point to the actual repo path (`/path/to/rmod`).

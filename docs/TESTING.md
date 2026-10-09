@@ -18,7 +18,7 @@ Run everything with `/verify`. `claude plugin test` exits 1 on any failure, so i
 
 ## 2. Fakes
 
-- **Servers**: one helper `fakeServers(on, { ollama: 'up'|'down'|'timeout'|'401'|'500'|'garbage', lmstudio: … , lmV1: true|false })` that registers an `http.fetch` stub. It branches on `e.url` and returns `{ value: { status, ok, headers, text } }` built from `tests/fixtures/*.json`, `{ deny: 'ECONNREFUSED' }` for down, and `await clock.sleep(…)` past the timeout for a hang. It records every URL fetched, so tests can assert "never fetched a non-loopback URL" and "never fetched while disabled".
+- **Servers**: one helper `fakeServers(on, { ollama: 'up'|'down'|'timeout'|'401'|'500'|'garbage', lmstudio: … , lmV1: true|false })` that registers an `http.fetch` stub. It branches on `e.url` and returns `{ value: { status, ok, headers, text } }` built from `tests/fixtures/index.ts` (generated from `tests/fixtures/*.json` by `npm run fixtures`), `{ deny: 'ECONNREFUSED' }` for down, and `await clock.sleep(…)` past the timeout for a hang. It records every URL fetched, so tests can assert "never fetched a non-loopback URL" and "never fetched while disabled".
 - **Time**: `const clock = mock.clock(on, { now: 1_000_000 })`, then `await clock.advance(5000)` per poll.
 - **Env**: `mock.env(on, { ANTHROPIC_BASE_URL: 'http://127.0.0.1:11434' })` (or none).
 - **Model requests**: a `turn.step` async-generator stub that yields 1–3 text chunks (optionally after `clock.sleep` for TTFT) and returns `{ turnId, index, answer, toolUses: [], stopReason: 'end_turn', usage: { input_tokens, output_tokens, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, model } }`. Variants: `usage: null`, `stopReason: null` (failed), and throwing mid-stream.

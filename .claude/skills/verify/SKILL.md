@@ -15,7 +15,7 @@ Run each step, keep going after a failure so the report is complete, then summar
    - Read the `env reads:` line. Only names on the allowlist (`ANTHROPIC_BASE_URL`, `OLLAMA_HOST`) are acceptable. There must be no `env writes:`.
    - A `gating hook` line is a failure: rmod must never gate.
 2. **Types**: `npx tsc -p .`. It needs `.claude-plugin/types/` to exist (the mod must have loaded once with `--plugin-dir`). If they're missing, report "types not generated" and continue.
-3. **Tests**: `claude plugin test`. Every test must pass. Report the counts. List any SPEC requirement ID from `docs/SPEC.md` with no test whose name contains it.
+3. **Tests**: `npm run -s fixtures:check` first (the generated `tests/fixtures/index.ts` must match the `*.json` fixtures), then `claude plugin test`. Every test must pass. Report the counts. List any SPEC requirement ID from `docs/SPEC.md` with no test whose name contains it.
 4. **Secrets**:
    - `gitleaks git --redact --staged --verbose` (staged changes), and `gitleaks dir --redact .` when the repo isn't initialised.
    - If gitleaks isn't installed, say so and tell the user to run `brew install gitleaks`, then use Grep as a fallback for `(?i)(api[_-]?key|secret|token|passw(or)?d)\s*[:=]\s*['"][^'"]{8,}` and `-----BEGIN [A-Z ]*PRIVATE KEY-----` across tracked files.

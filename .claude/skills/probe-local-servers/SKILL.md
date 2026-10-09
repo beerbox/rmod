@@ -37,6 +37,7 @@ Compare the field names against `docs/LOCAL_SERVERS.md` and the parsers in `hook
 
 - Write raw responses to `tests/fixtures/raw/` (gitignored) first.
 - Create a sanitized copy in `tests/fixtures/<server>-<endpoint>[-<variant>].json`. Keep the structure and field names. Replace digests with `sha256:0000…`, replace any personal paths, user names or hostnames with neutral values, and cap the list at three or four models. Make sure at least one fixture covers a loaded model and one covers an empty list.
+- Run `npm run fixtures` to regenerate `tests/fixtures/index.ts` (what tests import), and record the provenance in `tests/fixtures/README.md`.
 - Fixtures must contain no tokens or credentials of any kind.
 
 ## 6. Report

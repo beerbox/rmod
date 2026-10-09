@@ -16,9 +16,9 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 ## M2 Pure core (unit tests only)
 - [x] M2.1 `url-guard.ts` plus exhaustive tests, including the bypass cases in SECURITY.md §3 (FR-6.3, NFR-1).
 - [x] M2.2 `config.ts` (also the FR-6.2 tests deferred from M1.1: defaults, overrides via `test(name, { options })`, sensitive token kept out of `Config` and every output): defaults, ranges, `OLLAMA_HOST` handling and regex validation (FR-1.1, FR-6.2, FR-6.3).
-- [ ] M2.3 `parse-ollama.ts` and `parse-lmstudio.ts` against fixtures, malformed input and oversize lists (FR-5.1, FR-5.4).
+- [x] M2.3 `parse-ollama.ts` and `parse-lmstudio.ts` against fixtures, malformed input and oversize lists (FR-5.1, FR-5.4).
 - [ ] M2.4 `stats.ts`: ring buffer, avg/p50/p95, tok/s, `byModel` cap (FR-4.2, NFR-3).
-- [ ] M2.5 `attribution.ts` (also: widen the `localMcpToolPattern` default. MCP server names can contain `_`, e.g. `mcp__claude_ai_Claude_Docs__…`, so `[^_]*__` misses `mcp__ollama_local__x`. Update the manifest, config.ts and SPEC FR-4.1b together): base URL and model-name matching, and the tool-call classifier with positive and negative cases (FR-4.1).
+- [ ] M2.5 `attribution.ts` (also: widen the `localMcpToolPattern` default. MCP server names can contain `_`, e.g. `mcp__claude_ai_Claude_Docs__…`, so `[^_]*__` misses `mcp__ollama_local__x`. Update the manifest, config.ts and SPEC FR-4.1b together. Known limit: LM Studio requests may name a model by its `loaded_instances[].id` rather than `key`, so check what `usage.model` reports before relying on name matching for LM Studio): base URL and model-name matching, and the tool-call classifier with positive and negative cases (FR-4.1).
 
 ## M3 Server detection (FR-1, FR-2)
 - [ ] M3.1 Poll loop in `session.start` with timer cancel-on-reload, no overlapping probes, and the timeout race.

@@ -19,7 +19,12 @@ if git diff --cached --name-only --diff-filter=ACMR | grep -q '^\.claude-plugin/
   fail "refusing to commit generated .claude-plugin/types/ (regenerated per Claude Code build)"
 fi
 
-# 3. Content scan with gitleaks (required).
+# 3. Generated test fixtures must match the JSON they come from.
+if git diff --cached --name-only | grep -q '^tests/fixtures/'; then
+  node scripts/gen-fixtures.mjs --check || fail "tests/fixtures/index.ts is stale. Run: npm run fixtures, then git add tests/fixtures/index.ts"
+fi
+
+# 4. Content scan with gitleaks (required).
 if ! command -v gitleaks >/dev/null 2>&1; then
   fail "gitleaks not installed. Install it: brew install gitleaks"
 fi
