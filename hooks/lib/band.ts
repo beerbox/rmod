@@ -53,8 +53,9 @@ export const modelCount = (s: BackendStatus): string | undefined => {
 const backend = (name: string, s: BackendStatus, d: Detail): Segment => {
   let text = `${GLYPH[s.health]} ${name}${WORD[s.health]}`
   if (d.version && s.health === 'up' && s.version !== undefined) text += ` ${s.version}`
-  const models = d.models ? modelCount(s) : undefined
-  if (models !== undefined) text += ` · ${models}`
+  // Only while up: under auth, degraded or down the last list may be stale (FR-5.4).
+  const models = d.models && s.health === 'up' ? modelCount(s) : undefined
+  if (models !== undefined) text += ` · ${models}${s.modelsError === undefined ? '' : ' ⚠'}`
   return { text, tone: TONE[s.health] }
 }
 

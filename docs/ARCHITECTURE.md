@@ -17,6 +17,8 @@ hooks/lib/parse-ollama.ts    parseVersion / parseTags / parsePs / mergeOllama(ta
 hooks/lib/parse-lmstudio.ts  parseV1Models / parseOpenAiModels                           [pure]
 hooks/lib/shell.ts           simpleCommands / programOf / inlineScript: quote-aware Bash reader [pure]
 hooks/lib/attribution.ts     targetsOf(cfg), classifyToolCall(tool, e, targets, re), backendForModelStep(baseUrl, model, targets, inv) [pure]
+hooks/lib/inventory.ts       ollamaInventory(tags, ps), applyInventory, inventoryDue, sameInventory [pure]
+hooks/lib/model-list.ts      modelRows(models, truncated, requestsFor) → ●/○/◌ rows + `+N more`, formatBytes [pure]
 hooks/lib/stats.ts           ring buffer, avg/p50/p95, tok/s; immutable updates          [pure]
 hooks/lib/band.ts            bandLine(input, bodyColumns) → segments (full, trimmed, compact <60) [pure]
 hooks/lib/transitions.ts     transitionToast(name, memory, health) → { memory, toast? }: two-probe confirmation [pure]
@@ -111,7 +113,7 @@ Colours: green means up, red means down, yellow means auth/degraded, dim means u
 - Static analysis (checked on 2.1.295) allows `$` only in functions declared at the top of the file that uses it, and allows `read`/`update` only on atoms *defined in that same file*. So every atom and every `$`-using function lives in `register.tsx`, and module state is passed as a `ctx` object. Render helpers in `hooks/ui/` get plain data, not atoms.
 - Static analysis forbids passing `$` to imported functions. Pure libs receive data, and `register.tsx` does the I/O. Small top-level helpers *in the same file* may take `$`, which validate reports as `(via fn)`.
 - Use `127.0.0.1` as the default, not `localhost`. On macOS `localhost` can resolve to `::1`, while Ollama binds IPv4 by default.
-- The hook budget is about 10 s, and time inside `$` calls doesn't count. Render hooks must only `read`.
+- The hook budget is about 10 s. Time inside `$` calls doesn't count, **except `$.clock.sleep`**, whose wait is the hook's own time (types, `clock.sleep`). So a hook must never await a probe, because each probe races a timeout sleep. Probes run only from timers (`$.clock.every` / `after`). Render hooks must only `read`.
 - Org policy can refuse `$.http.fetch` to some hosts (web-fetch policy). Show `⚠ blocked by policy` when the rejection says so.
 - The loader validates `userConfig` types and `min`/`max` before `register` runs, and refuses the load on a mismatch (probed with the 2.1.295 kit). `config.ts` still re-checks them as defence in depth.
 - Hot reload re-runs `session.start`. Store the timer handle in a module variable and cancel it first. State in `$.state` survives the reload.

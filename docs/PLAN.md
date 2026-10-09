@@ -32,8 +32,8 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 - [ ] M4.4 Manual check in a real terminal and in the Desktop app (TESTING.md §5). Also run `/clear` with one backend disabled: it must still show `– off`, and LM Studio with a token must be asked for auth again. The kit can't reset state mid-test, so this is manual.
 
 ## M5 Available models (FR-5)
-- [ ] M5.1 Inventory refresh (on up, on interval, and on demand) for Ollama `/api/tags` + `/api/ps` and LM Studio `/api/v1/models`.
-- [ ] M5.2 Band counts and pane model lists (loaded first, capped, `+N more`).
+- [x] M5.1 Inventory refresh (on up, on interval, and on demand) for Ollama `/api/tags` + `/api/ps` and LM Studio `/api/v1/models`.
+- [x] M5.2 Band counts and pane model lists (loaded first, capped, `+N more`). The rows (`modelRows`) are built and tested; the pane that draws them comes in M7.1.
 
 ## M6 Live request counter (FR-4)
 - [ ] M6.1 `turn.step` instrumentation (count, in-flight, latency, TTFT, tokens), with attribution. Time TTFT to the first `text`/`thinking`/`tool` chunk, not an engine or envelope chunk (check the `TurnStepChunk` kinds in the types), and read `outTokens` from `TurnUsage` (check the field name). Wrap every stats update in try/catch (NFR-2).

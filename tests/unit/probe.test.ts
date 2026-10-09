@@ -37,12 +37,12 @@ describe('probe', () => {
   })
 
   test('FR-2.1 a 2xx native LM Studio probe is up', () => {
-    expect(lmstudioProbe(ok(LMSTUDIO_API_V1_MODELS), 'native', false)).toEqual({ result: { health: 'up', probeMs: 12 }, next: 'done' })
+    expect(lmstudioProbe(ok(LMSTUDIO_API_V1_MODELS), 'native', false)).toMatchObject({ result: { health: 'up', probeMs: 12 }, next: 'done' })
   })
 
   test('FR-2.2 a native 404 asks for the OpenAI-compatible fallback; the fallback reads /v1/models', () => {
     expect(lmstudioProbe(ok('Not Found', 404), 'native', false).next).toBe('fallback')
-    expect(lmstudioProbe(ok(LMSTUDIO_V1_MODELS), 'openai', false)).toEqual({ result: { health: 'up', probeMs: 12 }, next: 'done' })
+    expect(lmstudioProbe(ok(LMSTUDIO_V1_MODELS), 'openai', false)).toMatchObject({ result: { health: 'up', probeMs: 12 }, next: 'done' })
     expect(lmstudioProbe(ok('Not Found', 404), 'openai', false)).toEqual({ result: { health: 'degraded', error: 'http', probeMs: 12 }, next: 'done' })
   })
 

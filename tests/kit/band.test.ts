@@ -20,7 +20,7 @@ test('FR-3.1 FR-3.7 NFR-5 the band shows each backend with glyph, word and colou
   await clock.settle()
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...band(120), surface })
-    const up = await ui.find({ type: 'Text', text: /^✓ Ollama 0\.40\.2$/ })
+    const up = await ui.find({ type: 'Text', text: /^✓ Ollama 0\.40\.2( · |$)/ })
     const down = await ui.find({ type: 'Text', text: /^✗ LM Studio$/ })
     expect(up?.props).toMatchObject({ color: 'success' })
     expect(down?.props).toMatchObject({ color: 'error' })

@@ -8,21 +8,27 @@ test('FR-1.1 FR-2.1 FR-3.3 both servers are probed at start and then every poll 
   const { clock, servers } = boot(on, { ollama: 'up', lmstudio: 'up' })
   await $.session.start(START)
   await clock.settle()
-  expect(servers.fetched.map(f => f.url)).toEqual(['http://127.0.0.1:11434/api/version', 'http://127.0.0.1:1234/api/v1/models'])
+  expect(servers.fetched.map(f => f.url)).toEqual([
+    'http://127.0.0.1:11434/api/version',
+    'http://127.0.0.1:1234/api/v1/models',
+    'http://127.0.0.1:11434/api/tags',
+    'http://127.0.0.1:11434/api/ps',
+  ])
   expect(await ollama($)).toMatch(/^Ollama: ✓ up · v0\.40\.2 · /)
   expect(await lmstudio($)).toMatch(/^LM Studio: ✓ up/)
 
   await clock.advance(4999)
-  expect(servers.fetched.length).toBe(2)
-  await clock.advance(1)
   expect(servers.fetched.length).toBe(4)
+  await clock.advance(1)
+  expect(servers.fetched.length).toBe(6)
 })
 
 test('NFR-1 rmod only ever fetches the loopback backend URLs', async ($, on) => {
   const { clock, servers } = boot(on, { ollama: 'up', lmstudio: 'up' })
   await $.session.start(START)
   await clock.advance(20_000)
-  expect(servers.fetched.length).toBe(10)
+  // 5 polls of each backend, plus one Ollama inventory (tags + ps) at the start.
+  expect(servers.fetched.length).toBe(12)
   for (const f of servers.fetched) expect(f.url).toMatch(/^http:\/\/127\.0\.0\.1:(11434|1234)\//)
 })
 

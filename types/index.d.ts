@@ -33,6 +33,7 @@ export type BackendStatus = {
   error?: ProbeError
   models: readonly ModelInfo[]
   modelsTruncated: number
+  /** When the inventory last changed (unchanged lists aren't rewritten), not when it was last checked. */
   modelsAt?: number
   modelsError?: ProbeError
 }

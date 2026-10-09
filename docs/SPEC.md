@@ -52,12 +52,12 @@ While working in Claude Code, the user can see at a glance whether their local m
 - **FR-4.6** Only metadata is recorded: never prompt text, output text, command text, URLs with query strings, or file contents.
 
 ### FR-5 Available local models
-- **FR-5.1** While a backend is up, refresh its inventory every `modelsRefreshSec` (default 30 s), immediately after it changes to up, and on demand from the pane's **Refresh** button or `/rmod-refresh`.
+- **FR-5.1** While a backend is up, refresh its inventory every `modelsRefreshSec` (default 30 s), immediately after it changes to up, and on demand from the pane's **Refresh** button or `/rmod-refresh`. The command answers at once and the refresh runs from a timer, so its probes never count against the command hook's time budget.
   - Ollama: `GET /api/tags` (available) and `GET /api/ps` (loaded in memory, with `size_vram` and `expires_at`).
-  - LM Studio: `models[]` from `/api/v1/models`. A model is loaded when `loaded_instances` isn't empty. Include `type` (llm or embedding), `params_string` and `quantization.name`. With the `/v1/models` fallback, show IDs only and report "loaded" as unknown.
+  - LM Studio: `models[]` from `/api/v1/models`, which is the health probe's own response, so it costs no extra request and refreshes every poll (written only when it changes). A model is loaded when `loaded_instances` isn't empty. Include `type` (llm or embedding), `params_string` and `quantization.name`. With the `/v1/models` fallback, show IDs only and report "loaded" as unknown.
 - **FR-5.2** The band shows counts per backend: `N models, M loaded`.
 - **FR-5.3** The pane lists the models per backend, with loaded ones first, a `●` (loaded) or `○` (available) marker, the name truncated to fit, and the size, parameters and quantization where known. It caps the list at 200 per backend with `+N more`. Models used in this session are marked with their request count.
-- **FR-5.4** A model inventory that fails to parse shows `⚠ unreadable response` for that backend and doesn't crash or clear the other backend.
+- **FR-5.4** A model inventory that fails to parse shows `⚠ unreadable response` for that backend and doesn't crash or clear the other backend. For Ollama, `/rmod-status` shows `⚠ model list: unreadable response`, the band marks the count with `⚠`, and the last good list is kept. For LM Studio the list *is* the probe response, so an unreadable one shows as `⚠ degraded (unreadable response)`. The band shows a model count only while the backend is up.
 
 ### FR-6 Commands and configuration
 - **FR-6.1** Commands: `/rmod` (pane), `/rmod-status` (text summary), `/rmod-refresh` and `/rmod-reset`.
@@ -68,7 +68,7 @@ While working in Claude Code, the user can see at a glance whether their local m
 
 - **NFR-1 Security**: only loopback HTTP, the `$`-call allowlist, metadata only, the token in the Keychain via `sensitive`, and no secrets in the repo (docs/SECURITY.md).
 - **NFR-2 Fail-open**: no failure in rmod can block, alter or delay a tool call, prompt or model request by more than 5 ms of bookkeeping.
-- **NFR-3 Performance**: render hooks do no I/O. At most 2 + 2 probes per poll interval, no overlapping probes per backend (skip a tick if the previous probe is still pending), and memory bounded (ring buffers of 200, model lists of 200).
+- **NFR-3 Performance**: render hooks do no I/O. At most 2 + 2 health requests per poll interval (per backend: the probe, plus at most one LM Studio fallback or token retry). The Ollama inventory adds `/api/tags` + `/api/ps` once per `modelsRefreshSec` (and when it comes up, or on `/rmod-refresh`). LM Studio's inventory is the probe's own response. No overlapping requests per backend (skip a tick if the previous probe is still pending), and memory bounded (ring buffers of 200, model lists of 200).
 - **NFR-4 Compatibility**: Claude Code ≥ the version recorded in docs/REFERENCES.md (mods need ≥ 2.1.287), with Ollama and LM Studio versions as recorded at release. Tested on `terminal` and `desktop` surfaces.
 - **NFR-5 Accessibility**: status uses glyph + word + colour, and works with `NO_COLOR` or dim themes.
 - **NFR-6 Testability**: every FR and NFR ID is covered by an automated test or an explicit manual check (docs/TESTING.md §6).

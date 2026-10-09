@@ -2,6 +2,8 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 import { atom, read, update } from 'claude-code'
 
 import { bandLine } from './lib/band'
+import { applyInventory, inventoryDue, ollamaInventory, sameInventory } from './lib/inventory'
+import type { InventoryResult } from './lib/inventory'
 import { defaultConfig, parseConfig } from './lib/config'
 import type { Config } from './lib/config'
 import { applyProbe, initialStatus, lmstudioProbe, ollamaProbe } from './lib/probe'
@@ -10,6 +12,8 @@ import { asStats, emptyStats, summarize } from './lib/stats'
 import { statusText } from './lib/status-text'
 import { freshMemory, transitionToast } from './lib/transitions'
 import type { ToastMemory } from './lib/transitions'
+import { parseJson } from './lib/models'
+import { parseTags } from './lib/parse-ollama'
 import { buildUrl } from './lib/url-guard'
 import { bandTree } from './ui/band'
 import type { BackendStatus, Health, LmStudioEndpoint } from '../types'
@@ -43,6 +47,38 @@ type Ctx = {
   lmAskedForAuth: boolean
   /** FR-3.4: what the person was last told about each backend. */
   toasts: { ollama: ToastMemory; lmstudio: ToastMemory }
+  /** FR-5.1: when the Ollama inventory was last fetched, and whether /rmod-refresh asked for it now. */
+  inventoryAt: number | undefined
+  forceInventory: boolean
+}
+
+/** Whether an inventory result would change nothing in `s` (so it isn't written and redrawn). */
+const unchanged = (s: BackendStatus, r: InventoryResult): boolean =>
+  'models' in r && s.modelsError === undefined && s.modelsAt !== undefined && sameInventory(s, r.models)
+
+/** Writes an inventory result unless it is what state already holds. Static analysis wants each atom named. */
+const writeInventory = async ($: EngineInterface, backend: Backend, r: InventoryResult, at: number): Promise<void> => {
+  if (backend === 'ollama') {
+    if (!unchanged(await read($, ollamaStatus), r)) await update($, ollamaStatus, prev => applyInventory(prev, r, at))
+  } else if (!unchanged(await read($, lmstudioStatus), r)) {
+    await update($, lmstudioStatus, prev => applyInventory(prev, r, at))
+  }
+}
+
+/** FR-5.1: `/api/tags` + `/api/ps` when due. Two more requests per modelsRefreshSec, not per poll. */
+const refreshOllamaModels = async ($: EngineInterface, ctx: Ctx, cameUp: boolean): Promise<void> => {
+  const now = await $.clock.now()
+  if (!inventoryDue(await read($, ollamaStatus), ctx.inventoryAt, now, ctx.config.modelsRefreshMs, cameUp, ctx.forceInventory)) return
+  ctx.inventoryAt = now
+  ctx.forceInventory = false
+  const tagsUrl = buildUrl(ctx.config.ollamaUrl, '/api/tags')
+  const psUrl = buildUrl(ctx.config.ollamaUrl, '/api/ps')
+  if (tagsUrl === undefined || psUrl === undefined) return
+  const tags = await probe($, ctx, 'ollama', tagsUrl)
+  // A failed or unreadable /api/tags decides; skip /api/ps then.
+  const tagsReadable = tags.kind === 'response' && tags.status >= 200 && tags.status <= 299 && parseTags(parseJson(tags.text)) !== undefined
+  const ps: ProbeOutcome = tagsReadable ? await probe($, ctx, 'ollama', psUrl) : { kind: 'timeout' }
+  await writeInventory($, 'ollama', ollamaInventory(tags, ps), await $.clock.now())
 }
 
 /** Shows the toast a probe result calls for, if any (FR-3.4). */
@@ -88,8 +124,10 @@ const probeOllama = async ($: EngineInterface, ctx: Ctx): Promise<void> => {
   const url = buildUrl(ctx.config.ollamaUrl, '/api/version')
   const r: ProbeResult = url === undefined ? { health: 'degraded', error: 'config' } : ollamaProbe(await probe($, ctx, 'ollama', url))
   const at = await $.clock.now()
+  const wasUp = (await read($, ollamaStatus)).health === 'up'
   await update($, ollamaStatus, s => applyProbe(s, r, at))
   announce($, ctx, 'ollama', r.health)
+  if (r.health === 'up') await refreshOllamaModels($, ctx, !wasUp)
 }
 
 const askLmStudio = async ($: EngineInterface, ctx: Ctx, endpoint: Exclude<LmStudioEndpoint, null>, withToken: boolean): Promise<LmStudioStep> => {
@@ -129,6 +167,8 @@ const probeLmStudio = async ($: EngineInterface, ctx: Ctx): Promise<void> => {
   const r = step.result
   await update($, lmstudioStatus, s => applyProbe(s, r, at))
   announce($, ctx, 'lmstudio', r.health)
+  // FR-5.1: the probe's own response is the inventory: no extra request.
+  if (step.models !== undefined) await writeInventory($, 'lmstudio', { models: step.models }, at)
 }
 
 /** Probes one backend unless its previous probe is still pending. rmod's own failures never escape. */
@@ -186,6 +226,19 @@ const startPolling = async ($: EngineInterface, ctx: Ctx): Promise<void> => {
   }
 }
 
+/** The /rmod-status text (FR-3.7), also the answer to /rmod-refresh. */
+const statusOf = async ($: EngineInterface, ctx: Ctx): Promise<string> =>
+  statusText({
+    ollama: onOff(await read($, ollamaStatus), ctx.config.enableOllama),
+    lmstudio: onOff(await read($, lmstudioStatus), ctx.config.enableLmStudio),
+    ollamaUrl: ctx.config.ollamaUrl,
+    lmstudioUrl: ctx.config.lmstudioUrl,
+    ollamaExposed: ctx.config.ollamaExposed,
+    lmstudioEndpoint: await read($, lmstudioEndpoint),
+    statsOllama: asStats(await read($, statsOllama)),
+    statsLmstudio: asStats(await read($, statsLmstudio)),
+  })
+
 /** FR-1.4 / FR-2.4: a disabled backend shows off; one enabled again after an earlier load starts over. */
 const onOff = (s: BackendStatus, enabled: boolean): BackendStatus =>
   enabled ? (s.health === 'off' ? { ...s, health: 'unknown' } : s) : { ...s, health: 'off' }
@@ -201,6 +254,8 @@ export const register: Register = (on, options) => {
     inflight: { ollama: 0, lmstudio: 0 },
     lmAskedForAuth: false,
     toasts: { ollama: freshMemory(), lmstudio: freshMemory() },
+    inventoryAt: undefined,
+    forceInventory: false,
   }
   try {
     const parsed = parseConfig(options, undefined)
@@ -231,6 +286,15 @@ export const register: Register = (on, options) => {
       // Fixed text only: never echo the error, which could carry user data.
       $.ui.log('rmod: could not register /rmod-status')
     }
+    try {
+      await $.command.register({
+        name: 'rmod-refresh',
+        description: 'rmod: re-read the local model lists now',
+        immediate: true,
+      })
+    } catch {
+      $.ui.log('rmod: could not register /rmod-refresh')
+    }
 
     await startPolling($, ctx)
     return next(e)
@@ -257,20 +321,26 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'rmod-status' }, async $ => {
     try {
-      return {
-        text: statusText({
-          ollama: onOff(await read($, ollamaStatus), ctx.config.enableOllama),
-          lmstudio: onOff(await read($, lmstudioStatus), ctx.config.enableLmStudio),
-          ollamaUrl: ctx.config.ollamaUrl,
-          lmstudioUrl: ctx.config.lmstudioUrl,
-          ollamaExposed: ctx.config.ollamaExposed,
-          lmstudioEndpoint: await read($, lmstudioEndpoint),
-          statsOllama: asStats(await read($, statsOllama)),
-          statsLmstudio: asStats(await read($, statsLmstudio)),
-        }),
-      }
+      return { text: await statusOf($, ctx) }
     } catch {
       return { text: 'rmod: status unavailable' }
+    }
+  })
+
+  // FR-5.1: inventories on demand. The probes run from a timer, not in this hook: their timeout
+  // sleeps would count against the hook's budget (three in a row at probeTimeoutMs = 10 s overruns it).
+  on('command.run', { command: 'rmod-refresh' }, async $ => {
+    try {
+      const busy = ctx.pending.ollama || ctx.pending.lmstudio || ctx.inflight.ollama > 0 || ctx.inflight.lmstudio > 0
+      ctx.forceInventory = true
+      $.clock.after(0, () => tick($, ctx))
+      return {
+        text: busy
+          ? 'rmod: a check is already running; the model lists refresh with it. Run /rmod-status in a moment.'
+          : 'rmod: refreshing the model lists now. Run /rmod-status in a moment.',
+      }
+    } catch {
+      return { text: 'rmod: refresh failed' }
     }
   })
 }

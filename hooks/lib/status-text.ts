@@ -29,6 +29,7 @@ const line = (name: string, s: BackendStatus, url: string, extra: readonly strin
   if (s.health !== 'down' && s.health !== 'off' && s.probeMs !== undefined) parts.push(`${Math.round(s.probeMs)} ms`)
   const models = modelCount(s)
   if (models !== undefined) parts.push(models)
+  if (s.modelsError !== undefined && s.health !== 'down' && s.health !== 'off') parts.push('⚠ model list: unreadable response')
   if (s.health !== 'off') parts.push(url)
   return [...parts, ...extra].join(' · ')
 }

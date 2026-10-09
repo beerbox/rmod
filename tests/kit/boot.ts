@@ -13,15 +13,19 @@ export const START = { surface: 'terminal', isInteractive: true, cwd: '/work' } 
 export const boot = (on: On, servers: { ollama: Mode; lmstudio: Mode }) => {
   const clock: MockClock = mock.clock(on)
   const toasts: string[] = []
+  const registered: string[] = []
   on('session.start', () => ({ cwd: '/work' }))
-  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('command.register', ($, e) => {
+    registered.push(e.name)
+    return { value: { command: e.name } }
+  })
   on('ui.log', () => ({ value: undefined }))
   on('ui.toast', ($, e) => {
     toasts.push(e.text)
     return { value: undefined }
   })
   mock.env(on, {})
-  return { clock, toasts, servers: fakeServers(on, clock, servers) }
+  return { clock, toasts, registered, servers: fakeServers(on, clock, servers) }
 }
 
 /** What /rmod-status says about one backend: the kit has no state accessor, so tests read what a user would. */

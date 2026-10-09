@@ -5,6 +5,7 @@
 
 import type { BackendStatus, Health, LmStudioEndpoint, ProbeError } from '../../types'
 import { parseJson } from './models'
+import type { ModelList } from './models'
 import { parseVersion } from './parse-ollama'
 import { parseOpenAiModels, parseV1Models } from './parse-lmstudio'
 
@@ -44,6 +45,8 @@ export type LmStudioStep = {
   result: ProbeResult
   /** `fallback`: try `/v1/models` (FR-2.2). `retryWithToken`: ask again with the token, if one is set (FR-2.3). */
   next: 'done' | 'fallback' | 'retryWithToken'
+  /** The models the response listed, when it was up and readable (FR-5.1: the probe is the inventory). */
+  models?: ModelList
 }
 
 /** `GET /api/v1/models` (native) or `GET /v1/models` (fallback) (FR-2). */
@@ -54,7 +57,9 @@ export const lmstudioProbe = (o: ProbeOutcome, endpoint: Exclude<LmStudioEndpoin
   if (bad !== undefined) return { result: bad, next: bad.health === 'auth' && !tokenSent ? 'retryWithToken' : 'done' }
   const body = parseJson(o.text)
   const list = endpoint === 'native' ? parseV1Models(body) : parseOpenAiModels(body)
-  return { result: list === undefined ? { health: 'degraded', error: 'parse', probeMs: o.ms } : { health: 'up', probeMs: o.ms }, next: 'done' }
+  return list === undefined
+    ? { result: { health: 'degraded', error: 'parse', probeMs: o.ms }, next: 'done' }
+    : { result: { health: 'up', probeMs: o.ms }, next: 'done', models: list }
 }
 
 /** The new status after a probe: health fields replaced (stale version/error dropped), models kept. */
