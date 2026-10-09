@@ -105,6 +105,7 @@ Colours: green means up, red means down, yellow means auth/degraded, dim means u
 - Use `127.0.0.1` as the default, not `localhost`. On macOS `localhost` can resolve to `::1`, while Ollama binds IPv4 by default.
 - The hook budget is about 10 s, and time inside `$` calls doesn't count. Render hooks must only `read`.
 - Org policy can refuse `$.http.fetch` to some hosts (web-fetch policy). Show `⚠ blocked by policy` when the rejection says so.
+- The loader validates `userConfig` types and `min`/`max` before `register` runs, and refuses the load on a mismatch (probed with the 2.1.295 kit). `config.ts` still re-checks them as defence in depth.
 - Hot reload re-runs `session.start`. Store the timer handle in a module variable and cancel it first. State in `$.state` survives the reload.
 
 ## 7. Open questions (resolve with /docs-check before the milestone that needs them)

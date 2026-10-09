@@ -48,6 +48,8 @@ Allowed hooked events: `session.start`, `classic.SessionStart`, `turn.step`, `to
 
 Anything else needs a written justification in this file, approved by the user, before it's used.
 
+**No command hooks:** `hooks/hooks.json` holds only `modules` and must never gain `hooks` command entries. Claude Code exports `CLAUDE_PLUGIN_OPTION_<KEY>` to command-hook processes for every option, which could include `LMSTUDIOAPITOKEN`.
+
 ## 5. Bounds
 
 | Item | Limit |

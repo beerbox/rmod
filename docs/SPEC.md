@@ -61,7 +61,7 @@ While working in Claude Code, the user can see at a glance whether their local m
 ### FR-6 Commands and configuration
 - **FR-6.1** Commands: `/rmod` (pane), `/rmod-status` (text summary), `/rmod-refresh` and `/rmod-reset`.
 - **FR-6.2** `userConfig` in `plugin.json`: `enableOllama` (bool, default true), `ollamaUrl` (string, default empty, see FR-1.1), `enableLmStudio` (bool, default true), `lmstudioUrl` (string, default `http://127.0.0.1:1234`), `lmstudioApiToken` (string, **sensitive**, optional, no default; empty means unset), `pollIntervalSec` (number, 2–300, default 5), `probeTimeoutMs` (number, 200–10000, default 1500), `modelsRefreshSec` (number, 10–3600, default 30), `showBand` (bool, default true), and `localMcpToolPattern` (string).
-- **FR-6.3** Invalid config (a non-loopback URL, a value out of range, or a bad regex) falls back to the default for that field and shows one `$.ui.log` line explaining why. The rest of the mod keeps working.
+- **FR-6.3** Claude Code's loader checks each option's type and the manifest's `min`/`max` before rmod runs. A wrong type or out-of-range number refuses the module load with the loader's own message, so rmod can't fall back for those. For everything the manifest can't check, an invalid value falls back to that field's default and shows one `$.ui.log` line naming the field and the rule, never the rejected value. This covers a non-loopback URL, a bad, oversized or backtracking-prone regex (nested quantifiers, backreferences), a non-loopback `OLLAMA_HOST`, and an unusable token. The rest of the mod keeps working. A token is never sent when `lmstudioUrl` was rejected.
 
 ## 4. Non-functional requirements
 

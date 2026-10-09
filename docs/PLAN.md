@@ -10,15 +10,15 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 
 ## M1 Skeleton mod
 - [x] M1.1 `.claude-plugin/plugin.json` (with `userConfig` per FR-6.2 and `"types"`), `hooks/hooks.json`, a `hooks/register.tsx` that registers `/rmod-status` returning "rmod loaded", and `types/index.d.ts` with the full contract.
-- [ ] M1.2 Load it in a second terminal: `cd ~ && claude --plugin-dir <repo path> --debug` (currently `/path/to/rmod`). Confirm that `/plugin` shows `1 mod active · rmod` and that `.claude-plugin/types/` was generated. Then `npx tsc -p .`.
+- [x] M1.2 Load it in a second terminal: `cd ~ && claude --plugin-dir <repo path> --debug` (currently `/path/to/rmod`). Confirm that `/plugin` shows `1 mod active · rmod` and that `.claude-plugin/types/` was generated. Then `npx tsc -p .`.
 - [x] M1.3 First kit test: `FR-6.1 /rmod-status answers`. `claude plugin validate .` passes, and `calls:` is within the allowlist.
 
 ## M2 Pure core (unit tests only)
 - [x] M2.1 `url-guard.ts` plus exhaustive tests, including the bypass cases in SECURITY.md §3 (FR-6.3, NFR-1).
-- [ ] M2.2 `config.ts` (also the FR-6.2 tests deferred from M1.1: defaults, overrides via `test(name, { options })`, sensitive token kept out of `Config` and every output): defaults, ranges, `OLLAMA_HOST` handling and regex validation (FR-1.1, FR-6.2, FR-6.3).
+- [x] M2.2 `config.ts` (also the FR-6.2 tests deferred from M1.1: defaults, overrides via `test(name, { options })`, sensitive token kept out of `Config` and every output): defaults, ranges, `OLLAMA_HOST` handling and regex validation (FR-1.1, FR-6.2, FR-6.3).
 - [ ] M2.3 `parse-ollama.ts` and `parse-lmstudio.ts` against fixtures, malformed input and oversize lists (FR-5.1, FR-5.4).
 - [ ] M2.4 `stats.ts`: ring buffer, avg/p50/p95, tok/s, `byModel` cap (FR-4.2, NFR-3).
-- [ ] M2.5 `attribution.ts`: base URL and model-name matching, and the tool-call classifier with positive and negative cases (FR-4.1).
+- [ ] M2.5 `attribution.ts` (also: widen the `localMcpToolPattern` default. MCP server names can contain `_`, e.g. `mcp__claude_ai_Claude_Docs__…`, so `[^_]*__` misses `mcp__ollama_local__x`. Update the manifest, config.ts and SPEC FR-4.1b together): base URL and model-name matching, and the tool-call classifier with positive and negative cases (FR-4.1).
 
 ## M3 Server detection (FR-1, FR-2)
 - [ ] M3.1 Poll loop in `session.start` with timer cancel-on-reload, no overlapping probes, and the timeout race.
