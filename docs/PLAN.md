@@ -21,15 +21,15 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 - [x] M2.5 `attribution.ts` (also: widen the `localMcpToolPattern` default. MCP server names can contain `_`, e.g. `mcp__claude_ai_Claude_Docs__…`, so `[^_]*__` misses `mcp__ollama_local__x`. Update the manifest, config.ts and SPEC FR-4.1b together. Known limit: LM Studio requests may name a model by its `loaded_instances[].id` rather than `key`, so check what `usage.model` reports before relying on name matching for LM Studio): base URL and model-name matching, and the tool-call classifier with positive and negative cases (FR-4.1).
 
 ## M3 Server detection (FR-1, FR-2)
-- [ ] M3.1 Poll loop in `session.start` with timer cancel-on-reload, no overlapping probes, and the timeout race.
-- [ ] M3.2 Ollama probe, then state. LM Studio probe with the 404 fallback and 401 → auth. Token header only to `lmstudioUrl`.
-- [ ] M3.3 Kit tests with a mock clock and `http.fetch` stubs: up, refused, timeout, 401, 500, malformed, disabled, flapping.
+- [x] M3.1 Poll loop in `session.start` with timer cancel-on-reload, no overlapping probes, and the timeout race.
+- [x] M3.2 Ollama probe, then state. LM Studio probe with the 404 fallback and 401 → auth. Token header only to `lmstudioUrl`.
+- [x] M3.3 Kit tests with a mock clock and `http.fetch` stubs: up, refused, timeout, 401, 500, malformed, disabled, flapping.
 
 ## M4 Visual status band (FR-3)
 - [ ] M4.1 `AbovePrompt` band with ✓/✗/⚠/…/– plus words and colours, and a compact mode under 60 columns.
 - [ ] M4.2 One toast per transition, and none on the first probe.
 - [ ] M4.3 `/rmod-status` text fallback. Mount tests on `terminal` and `desktop`.
-- [ ] M4.4 Manual check in a real terminal and in the Desktop app (TESTING.md §5).
+- [ ] M4.4 Manual check in a real terminal and in the Desktop app (TESTING.md §5). Also run `/clear` with one backend disabled: it must still show `– off`, and LM Studio with a token must be asked for auth again. The kit can't reset state mid-test, so this is manual.
 
 ## M5 Available models (FR-5)
 - [ ] M5.1 Inventory refresh (on up, on interval, and on demand) for Ollama `/api/tags` + `/api/ps` and LM Studio `/api/v1/models`.
@@ -42,7 +42,7 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 - [ ] M6.4 Manual end-to-end: run Claude Code against Ollama via `ANTHROPIC_BASE_URL=http://127.0.0.1:11434` (TESTING.md §5) and against LM Studio, and check that the counts match the number of requests.
 
 ## M7 Pane polish and preferences (FR-3.5, FR-3.6)
-- [ ] M7.1 `/rmod` pane with Refresh, Reset and Hide/Show band buttons with hotkeys, plus `$.store` persistence and re-seeding on `classic.SessionStart`.
+- [ ] M7.1 `/rmod` pane with Refresh, Reset and Hide/Show band buttons with hotkeys, plus `$.store` persistence and re-seeding after `/clear`. **Decision needed:** `claude plugin validate` (2.1.295) lists a `classic.SessionStart` hook as a *gating hook*, which `/verify` fails. Either re-seed from the poll tick the way M3 self-heals (fresh state has no `checkedAt`), or agree an exception in SECURITY.md §4.
 - [ ] M7.2 Narrow-terminal and long-name layout tests.
 
 ## M8 Hardening and release

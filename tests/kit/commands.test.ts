@@ -17,7 +17,7 @@ test('FR-6.1 /rmod-status answers', async ($, on) => {
   expect(registered).toContainEqual({ name: 'rmod-status', immediate: true })
 
   const answer = await $.command.run(typed('rmod-status'))
-  expect(answer.text).toMatch(/rmod loaded/)
+  expect(answer.text).toMatch(/^rmod\nOllama: .*\nLM Studio: /)
 })
 
 test('NFR-2 session.start still passes on when command registration fails', async ($, on) => {

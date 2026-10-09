@@ -20,6 +20,7 @@ The full strategy and scenario matrix are in `docs/TESTING.md`. Before writing k
 - **turn.step stubs are async generators**. Read the returned stream to its end.
 - **UI**: `$.ui.mount({ plugin: 'rmod', surface, component, requestId, viewport, props })` in a loop over `['terminal', 'desktop'] as const`. Find elements by `key` or by `{ type: 'Text', text: /regex/ }`. A hook that returns `next(e)` needs a `ui.render` stub.
 - Name every test after the SPEC requirement it proves, for example `test('FR-1.2 ollama shows red ✗ when connection is refused', ...)`.
+- The kit's `$` has **no `state` noun**, so a test can't `read()` rmod's atoms. Observe state the way a user would: through `/rmod-status` text (`$.command.run`) or `$.ui.mount` drawings.
 - Unit-test pure functions in `hooks/lib/` directly by importing them. That's faster and more precise than going through the kit.
 - **Fixtures must be sanitized.** Use real response shapes captured by `/probe-local-servers` with no tokens, usernames, hostnames or personal paths. Raw captures go to `tests/fixtures/raw/`, which is gitignored.
 - Don't weaken an assertion to make a test pass. If behaviour changed on purpose, update SPEC.md first.

@@ -10,7 +10,8 @@ hooks/hooks.json             { "description": "rmod hooks module", "modules": ["
 hooks/register.tsx           wires events → lib → state; registers commands; starts timers
 hooks/lib/config.ts          parse + validate options (ranges, loopback, regex) → Config  [pure]
 hooks/lib/url-guard.ts       isLoopbackUrl(), buildUrl(base, path)                        [pure]
-hooks/lib/probe.ts           classifyProbe(outcome) → Health/ProbeResult (status, error, timeout) [pure; the fetch itself is in register.tsx]
+hooks/lib/probe.ts           ollamaProbe / lmstudioProbe(outcome) → ProbeResult (+ next step: fallback, retryWithToken), applyProbe [pure; the fetch and timeout race are in register.tsx]
+hooks/lib/status-text.ts     statusText(...) → /rmod-status text, glyph + word per state [pure]
 hooks/lib/models.ts          parseJson, clean* clamps, finalize (dedupe, loaded first, cap 200) [pure]
 hooks/lib/parse-ollama.ts    parseVersion / parseTags / parsePs / mergeOllama(tagsBody, psBody) [pure]
 hooks/lib/parse-lmstudio.ts  parseV1Models / parseOpenAiModels                           [pure]
@@ -30,7 +31,7 @@ tests/                       unit/*.test.ts (lib), kit/*.test.ts (hooks, UI), fi
 | Kind | Name | Why |
 |---|---|---|
 | event | `session.start` (single, no matcher) | register commands, read config/env, start poll timers, load `showBand` from store |
-| event | `classic.SessionStart` `{ source: ['clear','resume','fork'] }` | re-seed band preference after `$.state` reset |
+| event | ~~`classic.SessionStart` `{ source: ['clear','resume','fork'] }`~~ | validate (2.1.295) reports it as a gating hook, so it's not used. The poll tick re-seeds after a `$.state` reset instead (see §4) |
 | event | `turn.step` (async generator) | count/time model requests; TTFT; usage → tok/s |
 | event | `tool.call` | count/time tool requests that target local backends |
 | event | `command.run` `{ command: [...] }` | `/rmod`, `/rmod-status`, `/rmod-refresh`, `/rmod-reset` |
@@ -66,7 +67,7 @@ Arrays are `readonly` in the real contract. Keys stay flat and literal so `claud
 
 ## 4. Flows
 
-**Poll loop** (`session.start`): cancel any old timer, then `$.clock.every(pollMs, tick)`. For each enabled backend, `tick` skips if a probe is still pending, then races `$.http.fetch(url)` against `$.clock.sleep(timeoutMs)`. It classifies the result (FR-1/FR-2), `update`s the backend's status atom, and on a health change between up and down calls `$.ui.toast` (never on the first probe). It refreshes models when the backend has just come up or `modelsRefreshSec` has elapsed. Writing state redraws readers automatically. No `invalidate` is needed for state-backed values.
+**Poll loop** (`session.start`): cancel any old timer, then `$.clock.every(pollMs, tick)`, with the first tick from `$.clock.after(0)`. Each tick re-asserts `off` for disabled backends, because `/clear` resets `$.state` without a `session.start`. A status with no `checkedAt` means fresh state, so the LM Studio token gate resets. For each enabled backend, `tick` skips if a probe is still pending, or if an earlier fetch is still open: `$.http.fetch` can't be cancelled, so a hung server holds one request at most. Otherwise it then races `$.http.fetch(url)` against `$.clock.sleep(timeoutMs)`. It classifies the result (FR-1/FR-2), `update`s the backend's status atom, and on a health change between up and down calls `$.ui.toast` (never on the first probe). It refreshes models when the backend has just come up or `modelsRefreshSec` has elapsed. Writing state redraws readers automatically. No `invalidate` is needed for state-backed values.
 
 **Model requests** (`turn.step`):
 ```ts
@@ -105,6 +106,7 @@ Colours: green means up, red means down, yellow means auth/degraded, dim means u
 
 - `HttpResponse.text` arrives fully buffered by the host, with no size cap in the types. `parseJson` refuses bodies over 4 MB, which bounds the parse work but not the transfer.
 - `$.http.fetch` has **no timeout option**, so `Promise.race` it with `$.clock.sleep(timeoutMs)`. A late reply is ignored.
+- Static analysis (checked on 2.1.295) allows `$` only in functions declared at the top of the file that uses it, and allows `read`/`update` only on atoms *defined in that same file*. So every atom and every `$`-using function lives in `register.tsx`, and module state is passed as a `ctx` object. Render helpers in `hooks/ui/` get plain data, not atoms.
 - Static analysis forbids passing `$` to imported functions. Pure libs receive data, and `register.tsx` does the I/O. Small top-level helpers *in the same file* may take `$`, which validate reports as `(via fn)`.
 - Use `127.0.0.1` as the default, not `localhost`. On macOS `localhost` can resolve to `::1`, while Ollama binds IPv4 by default.
 - The hook budget is about 10 s, and time inside `$` calls doesn't count. Render hooks must only `read`.
@@ -116,6 +118,6 @@ Colours: green means up, red means down, yellow means auth/degraded, dim means u
 
 1. The exact `AbovePrompt` props (`hasSurvey`, `bodyColumns`) and whether `ui.render` matchers accept `requestId` for `Pane`.
 2. Whether `TurnStepResult.usage.model` reports the local model name for Ollama and LM Studio Anthropic-compatible endpoints.
-3. Whether `$.http.fetch` rejects or returns a status on ECONNREFUSED (the design handles both).
+3. ~~Whether `$.http.fetch` rejects or returns a status on ECONNREFUSED~~: it **rejects**, with a message holding `ECONNREFUSED` and the URL (probed 2026-10-09).
 4. Whether `$.env.get` sees `env` from settings files (Claude Code applies them to the process env, so expect yes).
-5. Whether `$.http.fetch` follows redirects, and whether it keeps `Authorization` across hosts. This gates M3.2 (SECURITY.md §3, Redirects).
+5. ~~Redirects~~: followed, `Authorization` dropped across origins (SECURITY.md §3, settled 2026-10-09).

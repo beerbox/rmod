@@ -25,15 +25,15 @@ test('FR-6.2 manifest defaults load with no log lines and the default URLs', asy
   await $.session.start(START)
   expect(logs).toEqual([])
   const answer = await $.command.run(typed('rmod-status'))
-  expect(answer.text).toMatch(/Ollama http:\/\/127\.0\.0\.1:11434/)
-  expect(answer.text).toMatch(/LM Studio http:\/\/127\.0\.0\.1:1234/)
+  expect(answer.text).toMatch(/Ollama: .*http:\/\/127\.0\.0\.1:11434/)
+  expect(answer.text).toMatch(/LM Studio: .*http:\/\/127\.0\.0\.1:1234/)
 })
 
 test('FR-1.1 OLLAMA_HOST is used when ollamaUrl is left empty', async ($, on) => {
   const logs = startStubs(on, { OLLAMA_HOST: '127.0.0.1:11500' })
   await $.session.start(START)
   expect(logs).toEqual([])
-  expect((await $.command.run(typed('rmod-status'))).text).toMatch(/Ollama http:\/\/127\.0\.0\.1:11500/)
+  expect((await $.command.run(typed('rmod-status'))).text).toMatch(/Ollama: .*http:\/\/127\.0\.0\.1:11500/)
 })
 
 test(
@@ -45,7 +45,7 @@ test(
     expect(logs.length).toBe(1)
     expect(logs[0]).toMatch(/lmstudioUrl/)
     expect(logs[0]).not.toMatch(/192\.168/)
-    expect((await $.command.run(typed('rmod-status'))).text).toMatch(/LM Studio http:\/\/127\.0\.0\.1:1234/)
+    expect((await $.command.run(typed('rmod-status'))).text).toMatch(/LM Studio: .*http:\/\/127\.0\.0\.1:1234/)
   },
 )
 
@@ -78,7 +78,7 @@ test('NFR-2 session.start passes on when $.env.get is denied', async ($, on) => 
   expect(await $.session.start(START)).toEqual({ cwd: '/work' })
   expect(logs).toEqual(['rmod: could not read OLLAMA_HOST; using configured values'])
   expect(registered).toContain('rmod-status')
-  expect((await $.command.run(typed('rmod-status'))).text).toMatch(/Ollama http:\/\/127\.0\.0\.1:11434/)
+  expect((await $.command.run(typed('rmod-status'))).text).toMatch(/Ollama: .*http:\/\/127\.0\.0\.1:11434/)
 })
 
 test('FR-6.3 the loader refuses an out-of-range number before rmod runs', { options: { pollIntervalSec: 1 } }, async ($, on) => {

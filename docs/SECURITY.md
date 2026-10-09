@@ -33,10 +33,16 @@ These must be rejected (tests in M2.1): `http://127.0.0.1@evil.com`, `http://evi
 
 The guard checks the raw authority text against those exact spellings as well as the parsed URL, because WHATWG `URL` turns `2130706433`, `0x7f.0.0.1` and `0177.0.0.1` into `127.0.0.1`. `localhost` is accepted by spelling, but where it connects depends on `/etc/hosts`, so the defaults use `127.0.0.1`. Endpoint paths can't contain `.` or `..` segments.
 
-**Redirects (gate for M3.2, open):** the guard checks only the URL rmod asks for. Neither the 2.1.295 types nor the live reference say whether `$.http.fetch` follows 3xx redirects, or keeps `Authorization` when a redirect goes to another host. Any local process on the port could answer `302 Location: http://evil.example/`. Before any probe sends the LM Studio token:
-1. Settle the behaviour with a manual probe against a local 302 server that redirects to another loopback port, with no internet target. Record the result here.
-2. Treat any 3xx response as *degraded*, and never follow it.
-3. Send the token only to a URL whose token-less probe this session returned 2xx or 401/403 (never 3xx). If redirects turn out to be followed with headers kept, add a guard on the final URL, or drop token support, before release.
+**Redirects (gate for M3.2, settled 2026-10-09 on Claude Code 2.1.295).** Probed with a throwaway mod and two loopback servers, with no internet target (`example.invalid`):
+- `$.http.fetch` **follows redirects** transparently. It reports only the final status, with no final URL and no option to turn this off.
+- It **drops `Authorization`** whenever a redirect changes origin, even between two loopback ports or from `127.0.0.1` to `localhost`. It keeps the header only on a same-origin redirect.
+- It **follows redirects to non-loopback hosts**. The probe got as far as a DNS lookup of `example.invalid`.
+
+Consequences and rules:
+1. **The token is safe**: a redirect can't carry it to another origin.
+2. **Residual risk (needs the user's acknowledgement)**: a process listening on a backend's port could redirect rmod's probe to an internet host. That request carries no token, no user data and no body, only a plain GET. rmod can't detect or prevent it, because the API offers no control. Every response is validated as untrusted anyway.
+3. rmod still sends the token only after a token-less probe to `lmstudioUrl` answered 401/403 this session, so a server that never asks for it never sees it. The gate resets when LM Studio stops listening, because whatever binds the port next must ask again. It also resets when `$.state` is fresh after `/clear`, `/resume` or `/branch`.
+4. Rejections (`ECONNREFUSED`, `ENOTFOUND`, policy refusals) arrive as a rejected promise whose message includes the URL. rmod maps them to its own `ProbeError` kinds and never displays or stores the message.
 
 ## 4. `$` call allowlist (compare with the output of `claude plugin validate .`)
 
