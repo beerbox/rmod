@@ -95,9 +95,14 @@ Operational advice:
 - LM Studio's "Serve on Local Network" toggle does the same. Keep it off unless you need it, and turn on its API token if you do.
 - Install mods only from sources you trust, and keep Claude Code up to date (`claude update`).
 
+## Troubleshooting
+
+- **A backend shows `✗ not listening (no answer in time)` although it's running again.** A request to it never finished, and Claude Code can't cancel one. rmod keeps one request open per backend at most, so it waits. Run `/reload-plugins`, or restart the session.
+- **`/rmod-status` shows `⚠ model list: unreadable response`.** The server answered with something rmod couldn't read. The last good list is kept, and `/rmod-refresh` tries again.
+
 ## Tested with
 
-Claude Code 2.1.295, Ollama 0.40.2 (live), LM Studio (response shapes from its docs; live check pending), macOS on Apple Silicon. Final versions are recorded in CHANGELOG.md at each release.
+Claude Code 2.1.296, Ollama 0.40.2 (live), LM Studio (response shapes from its docs; live check pending), macOS on Apple Silicon. Final versions are recorded in CHANGELOG.md at each release.
 
 ## Docs
 

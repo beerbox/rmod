@@ -39,6 +39,21 @@ describe('attribution', () => {
     expect(bash('curl \\\n  http://localhost:11434/api/tags')).toBe('ollama')
   })
 
+  test('FR-4.1b wrapper options that take a value are skipped, so the real program is found', () => {
+    expect(bash('nice -n 5 curl localhost:11434/api/tags')).toBe('ollama')
+    expect(bash('sudo -u me curl localhost:1234/v1/models')).toBe('lmstudio')
+    expect(bash('timeout -s KILL 30 curl 127.0.0.1:11434/api/version')).toBe('ollama')
+    expect(bash('env -u FOO curl localhost:1234/v1/models')).toBe('lmstudio')
+    expect(bash('xargs -n 1 curl localhost:11434/api/tags')).toBe('ollama')
+  })
+
+  test('FR-4.1b ollama run against a remote OLLAMA_HOST is not local', () => {
+    expect(bash('OLLAMA_HOST=1.2.3.4:11434 ollama run llama3')).toBeNull()
+    expect(bash('env OLLAMA_HOST=gpu-box ollama run llama3')).toBeNull()
+    expect(bash('OLLAMA_HOST=127.0.0.1:11434 ollama run llama3')).toBe('ollama')
+    expect(bash('OLLAMA_HOST= ollama run llama3')).toBe('ollama')
+  })
+
   test('FR-4.1b a command naming both backends goes to the first request in it', () => {
     expect(bash('curl localhost:1234/v1/models; curl localhost:11434/api/tags')).toBe('lmstudio')
     expect(bash('ollama run x; lms chat y')).toBe('ollama')

@@ -87,23 +87,53 @@ export const simpleCommands = (src: string): string[][] => {
 /** Words that run the next word as a command: `time ollama run`, `nohup lms chat`, `env X=1 curl`. */
 const WRAPPERS: ReadonlySet<string> = new Set(['time', 'nohup', 'env', 'exec', 'command', 'nice', 'caffeinate', 'xargs', 'timeout', 'gtimeout', 'sudo'])
 
+/** Wrapper options that take a value as the next word (`nice -n 5`, `sudo -u me`, `timeout -s KILL`). */
+const VALUE_OPTIONS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['nice', new Set(['-n'])],
+  ['sudo', new Set(['-u', '-g', '-h', '-p', '-C'])],
+  ['env', new Set(['-u', '-C', '-S'])],
+  ['timeout', new Set(['-s', '-k'])],
+  ['gtimeout', new Set(['-s', '-k'])],
+  ['xargs', new Set(['-n', '-P', '-I', '-L', '-s', '-d', '-E'])],
+])
+
+export type Program = {
+  program: string
+  args: readonly string[]
+  /** `VAR=value` words before the program (and inside `env`), by name. */
+  env: ReadonlyMap<string, string>
+}
+
 /**
  * The command a simple command runs, with its arguments: `VAR=value` prefixes, wrappers and their
- * options are skipped, and the program is its base name (`/opt/homebrew/bin/ollama` → `ollama`).
+ * options (and option values) are skipped, and the program is its base name (`/opt/homebrew/bin/ollama` → `ollama`).
  */
-export const programOf = (words: readonly string[]): { program: string; args: readonly string[] } | undefined => {
+export const programOf = (words: readonly string[]): Program | undefined => {
+  const env = new Map<string, string>()
   let i = 0
   while (i < words.length) {
     const w = words[i] ?? ''
-    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(w)) {
+    const assign = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/s.exec(w)
+    if (assign !== null) {
+      env.set(assign[1] ?? '', assign[2] ?? '')
       i += 1
     } else if (WRAPPERS.has(baseName(w))) {
       const wrapper = baseName(w)
+      const takesValue = VALUE_OPTIONS.get(wrapper)
       i += 1
-      // Options of the wrapper (`nice -n 5`, `timeout 30`, `xargs -0`) come before the command.
-      while (i < words.length && (/^-/.test(words[i] ?? '') || (wrapper === 'timeout' || wrapper === 'gtimeout' ? /^\d/.test(words[i] ?? '') : false))) i += 1
+      // Options of the wrapper come before the command; some take the next word as a value.
+      while (i < words.length) {
+        const o = words[i] ?? ''
+        if (o.startsWith('-')) {
+          i += takesValue?.has(o) === true ? 2 : 1
+        } else if ((wrapper === 'timeout' || wrapper === 'gtimeout') && /^\d/.test(o)) {
+          i += 1
+        } else {
+          break
+        }
+      }
     } else {
-      return { program: baseName(w), args: words.slice(i + 1) }
+      return { program: baseName(w), args: words.slice(i + 1), env }
     }
   }
   return undefined

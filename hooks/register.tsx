@@ -601,7 +601,19 @@ export const register: Register = (on, options) => {
       }
       // Nothing to watch and nothing counted: leave the row to the engine.
       if (!ctx.config.enableOllama && !ctx.config.enableLmStudio && summarize(input.statsOllama, input.statsLmstudio).total === 0) return next(e)
-      return bandTree($.ui.resolve(e), bandLine(input, e.props.bodyColumns))
+      const ours = bandTree($.ui.resolve(e), bandLine(input, e.props.bodyColumns))
+      const { Box } = $.ui.resolve(e)
+      // A tree here replaces what the mods after rmod draw: keep theirs, below rmod's row.
+      // `next` is called once, here; a failure past this point still returns what it gave.
+      const theirs = await next(e).catch(() => undefined)
+      return theirs === undefined || theirs === null ? (
+        ours
+      ) : (
+        <Box flexDirection="column">
+          {ours}
+          {theirs}
+        </Box>
+      )
     } catch {
       return next(e)
     }
@@ -632,7 +644,8 @@ export const register: Register = (on, options) => {
       // every pane without drawing it, so it is told apart by the session, not by isPlaced.
       if (ctx.headless) return { text: await statusOf($, ctx) }
       const placed = await $.ui.open({ id: PANE_ID, title: 'rmod · local models', focus: true, closeOnEscape: true })
-      return placed.isPlaced ? { text: 'rmod: pane opened (Esc closes it)' } : { text: await statusOf($, ctx) }
+      // Nothing for the transcript (or the model) when the pane opens.
+      return placed.isPlaced ? {} : { text: await statusOf($, ctx) }
     } catch {
       return { text: 'rmod: could not open the pane; try /rmod-status' }
     }

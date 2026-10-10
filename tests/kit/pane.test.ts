@@ -28,7 +28,8 @@ test('FR-3.5 FR-6.1 /rmod is registered as immediate and opens the rmod pane', a
   await $.session.start(START)
   await clock.settle()
   expect(registered).toContain('rmod')
-  await $.command.run(typed('rmod'))
+  // Nothing for the transcript (or the model) when the pane opens.
+  expect(await $.command.run(typed('rmod'))).toEqual({})
   expect(opened).toEqual(['rmod'])
 })
 

@@ -185,3 +185,16 @@ test('FR-3.4 a repeated session.start keeps what was announced: no extra toasts'
   await clock.advance(10_000)
   expect(toasts).toEqual(['✗ Ollama stopped listening'])
 })
+
+test('FR-3.1 rmod draws its band above what later mods draw there, never instead of it', async ($, on) => {
+  const { clock } = boot(on, { ollama: 'up', lmstudio: 'down' })
+  on('ui.render', () => ({ type: 'Text' as const, props: {}, children: ['another mod band'] }))
+  await $.session.start(START)
+  await clock.settle()
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...band(120), surface })
+    expect(await ui.find({ type: 'Text', text: /^✓ Ollama/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'another mod band' })).toBeDefined()
+    await ui.unmount()
+  }
+})

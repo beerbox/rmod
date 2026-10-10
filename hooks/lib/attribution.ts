@@ -8,7 +8,7 @@
 import type { BackendId, ModelInfo } from '../../types'
 import type { Config } from './config'
 import { inlineScript, programOf, simpleCommands } from './shell'
-import { isLoopbackUrl, portOf } from './url-guard'
+import { isLoopbackUrl, normalizeOllamaHost, portOf } from './url-guard'
 
 /** The ports of the enabled backends, and of disabled ones (which get nothing attributed). */
 export type Targets = { ollama?: number; lmstudio?: number; offPorts?: readonly number[] }
@@ -90,7 +90,10 @@ const backendOfCommand = (command: string, targets: Targets, depth: number): Bac
       continue
     }
     const verb = p.args.find(a => !a.startsWith('-'))
-    if (p.program === 'ollama' && verb === 'run' && targets.ollama !== undefined) return 'ollama'
+    // `OLLAMA_HOST=1.2.3.4 ollama run …` talks to another machine: out of scope (SPEC §5).
+    const host = p.env.get('OLLAMA_HOST')
+    const remote = host !== undefined && host.trim() !== '' && normalizeOllamaHost(host) === undefined
+    if (p.program === 'ollama' && verb === 'run' && targets.ollama !== undefined && !remote) return 'ollama'
     if (p.program === 'lms' && verb === 'chat' && targets.lmstudio !== undefined) return 'lmstudio'
     const b = backendOfArgs(p.program, p.args, targets)
     if (b !== null) return b
