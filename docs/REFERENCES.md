@@ -1,7 +1,7 @@
 # References: always use the LATEST version
 
-Last verified: 2026-10-09
-Claude Code version verified: 2.1.295 (mods require ≥ 2.1.287)
+Last verified: 2026-10-10
+Claude Code version verified: 2.1.296 (mods require ≥ 2.1.287)
 Ollama / LM Studio versions verified: Ollama 0.40.2 (live probe 2026-10-09) · LM Studio not running at M0.3, shape taken from live docs (re-probe pending)
 
 **Policy:** these links are where to look, not what to believe. Fetch the page (the `.md` form for code.claude.com) each time you rely on it. Precedence: generated types of the installed build > live docs > this repo's notes > memory (never).
@@ -24,6 +24,7 @@ Ollama / LM Studio versions verified: Ollama 0.40.2 (live probe 2026-10-09) · L
 - Create a mod (layout, validate, types, dev loop): https://code.claude.com/docs/en/plugins/mods/create.md
 - Mods reference (events, `$` methods, render sites, elements, limits): https://code.claude.com/docs/en/plugins/mods/reference.md
 - Draw in the interface (pane, band, state): https://code.claude.com/docs/en/plugins/mods/interface.md
+- Interface gallery (example sites and elements): https://code.claude.com/docs/en/plugins/mods/gallery.md
 - React to events (tool.call, turn.step, order, failure): https://code.claude.com/docs/en/plugins/mods/events.md
 - Use the mods API (commands, timers, http, store): https://code.claude.com/docs/en/plugins/mods/api.md
 - Test a mod (kit, stubs, mock clock, mount): https://code.claude.com/docs/en/plugins/mods/test.md
@@ -56,3 +57,4 @@ Ollama / LM Studio versions verified: Ollama 0.40.2 (live probe 2026-10-09) · L
 - 2026-10-09 · Ollama 0.40.2 probe · `/api/tags` entries add `capabilities[]` and `details.runner`; MLX models report `parameter_size` and `quantization_level` as `""` (treat as unknown) · LOCAL_SERVERS.md, tests/fixtures/
 - 2026-10-09 · lmstudio.ai list-models page · `quantization` may be null and its fields nullable; `params_string` nullable; embedding entries omit `architecture`, `capabilities`, `description` · LOCAL_SERVERS.md, tests/fixtures/
 - 2026-10-09 · ollama envconfig.Host() source · `OLLAMA_HOST` with an explicit scheme and no port defaults to 80 (http) or 443 (https), not 11434 · url-guard.ts, LOCAL_SERVERS.md
+- 2026-10-10 · Claude Code 2.1.296 types vs 2.1.295 · only `autoCompactWindow` on agent definitions and `$.mcp.connect` wording changed; nothing rmod uses. tsc, 249 tests and validate are green on 2.1.296. New docs page: mods/gallery.md. No What's-new entries since 2026-09-11. Ollama /api/ps unchanged. LM Studio changelog has no dated entries after 2025-10 · REFERENCES.md
