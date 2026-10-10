@@ -3,7 +3,7 @@
   "displayName": "rmod",
   "version": "0.0.1",
   "description": "Local LLM monitor: shows whether Ollama and LM Studio are listening, counts this session's local requests, and lists local models.",
-  "author": { "name": "Radek" },
+  "author": { "name": "Radoslaw Szpila" },
   "license": "MIT",
   "keywords": ["ollama", "lm-studio", "local-llm", "monitor", "mod"],
   "types": "./types/index.d.ts",

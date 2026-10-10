@@ -1,6 +1,6 @@
 # rmod: requirements specification
 
-Status: draft v1 · Owner: Radek · Platform: macOS (Apple Silicon MacBook) · Host: Claude Code CLI (terminal) and the Desktop app's Code tab
+Status: draft v1 · Owner: Radoslaw Szpila · Platform: macOS (Apple Silicon MacBook) · Host: Claude Code CLI (terminal) and the Desktop app's Code tab
 
 Every test name starts with the requirement ID it proves (for example `FR-1.2 …`).
 

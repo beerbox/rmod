@@ -31,4 +31,4 @@ All notable changes to rmod are documented here. Format: [Keep a Changelog](http
 - Release review fixes. The band is drawn above what later mods draw there, never instead of it. Wrapper options with values (`nice -n`, `sudo -u`, `timeout -s`, `env -u`, `xargs -n`) are skipped when finding the program. `ollama run` against a remote `OLLAMA_HOST` isn't counted. `/rmod` adds nothing to the transcript when the pane opens. README troubleshooting added.
 
 ### Fixed
-- Docs and dev instructions point to the actual repo path (`/path/to/rmod`).
+- Docs and dev instructions use a portable plugin path (`/path/to/rmod`).

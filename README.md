@@ -26,12 +26,13 @@ Below 60 columns it collapses to `✓O ✗L · 12 req · 2.3s`.
 ## Develop
 
 ```bash
-cd rmod
-git init && git config core.hooksPath .githooks   # secret scanning before every commit
-claude                                            # dev session; CLAUDE.md + skills load automatically
+git clone <repo-url> rmod && cd rmod
+git config core.hooksPath .githooks   # secret scanning before every commit
+npm ci --ignore-scripts               # dev-only: pinned TypeScript for the type-check
+claude                                # dev session; CLAUDE.md + skills load automatically
 ```
 
-In a **second terminal**, run the mod with hot reload:
+In a **second terminal**, run the mod with hot reload (from outside the repo, with the clone's path):
 
 ```bash
 claude --plugin-dir /path/to/rmod --debug
@@ -103,6 +104,10 @@ Operational advice:
 ## Tested with
 
 Claude Code 2.1.296, Ollama 0.40.2 (live), LM Studio (response shapes from its docs; live check pending), macOS on Apple Silicon. Final versions are recorded in CHANGELOG.md at each release.
+
+## License
+
+[MIT](LICENSE) © 2026 Radoslaw Szpila
 
 ## Docs
 

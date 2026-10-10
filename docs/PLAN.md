@@ -10,7 +10,7 @@ Work top to bottom with `/implement-milestone <id>`. Tick each box when it passe
 
 ## M1 Skeleton mod
 - [x] M1.1 `.claude-plugin/plugin.json` (with `userConfig` per FR-6.2 and `"types"`), `hooks/hooks.json`, a `hooks/register.tsx` that registers `/rmod-status` returning "rmod loaded", and `types/index.d.ts` with the full contract.
-- [x] M1.2 Load it in a second terminal: `cd ~ && claude --plugin-dir <repo path> --debug` (currently `/path/to/rmod`). Confirm that `/plugin` shows `1 mod active · rmod` and that `.claude-plugin/types/` was generated. Then `npx tsc -p .`.
+- [x] M1.2 Load it in a second terminal: `claude --plugin-dir /path/to/rmod --debug` (from outside the repo). Confirm that `/plugin` shows `1 mod active · rmod` and that `.claude-plugin/types/` was generated. Then `npx tsc -p .`.
 - [x] M1.3 First kit test: `FR-6.1 /rmod-status answers`. `claude plugin validate .` passes, and `calls:` is within the allowlist.
 
 ## M2 Pure core (unit tests only)
