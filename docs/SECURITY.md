@@ -40,8 +40,8 @@ The guard checks the raw authority text against those exact spellings as well as
 
 Consequences and rules:
 1. **The token is safe**: a redirect can't carry it to another origin.
-2. **Residual risk (needs the user's acknowledgement)**: a process listening on a backend's port could redirect rmod's probe to an internet host. That request carries no token, no user data and no body, only a plain GET. rmod can't detect or prevent it, because the API offers no control. Every response is validated as untrusted anyway.
-3. rmod still sends the token only after a token-less probe to `lmstudioUrl` answered 401/403 this session, so a server that never asks for it never sees it. The gate resets when LM Studio stops listening, because whatever binds the port next must ask again. It also resets when `$.state` is fresh after `/clear`, `/resume` or `/branch`.
+2. **Residual risk (awaiting the user's acknowledgement before release; not yet recorded)**: a process listening on a backend's port could redirect rmod's probe to an internet host. That request carries no token, no user data and no body, only a plain GET. rmod can't detect or prevent it, because the API offers no control. Every response is validated as untrusted anyway.
+3. rmod still sends the token only after a token-less probe to `lmstudioUrl` answered 401/403 this session, so a server that never asks for it never sees it. The gate resets when LM Studio stops listening, because whatever binds the port next must ask again. It also resets when `$.state` is fresh after `/clear`, `/resume` or `/branch`. Known gap: if another process takes LM Studio's port within one poll interval, without rmod seeing it down in between, it gets the token on its first probe. Any local process could answer 401 anyway, so this is accepted.
 4. Rejections (`ECONNREFUSED`, `ENOTFOUND`, policy refusals) arrive as a rejected promise whose message includes the URL. rmod maps them to its own `ProbeError` kinds and never displays or stores the message.
 
 ## 4. `$` call allowlist (compare with the output of `claude plugin validate .`)
@@ -50,7 +50,7 @@ Allowed calls: `$.http.fetch`, `$.clock.now`, `$.clock.every`, `$.clock.after`, 
 
 Allowed env reads: `ANTHROPIC_BASE_URL`, `OLLAMA_HOST`. No env writes are allowed.
 
-Allowed hooked events: `session.start`, `classic.SessionStart`, `turn.step`, `tool.call`, `command.run`, `ui.render`.
+Allowed hooked events: `session.start`, `turn.step`, `tool.call`, `command.run`, `ui.render`. (`classic.SessionStart` was planned but validate lists it as gating, so rmod re-seeds after `/clear` from its poll tick instead.)
 
 **The one accepted gating line (approved by the user, 2026-10-09):** `claude plugin validate` lists every `tool.call` hook as `gating hook without .catch: tool.call`, because a hook there *could* refuse a call. rmod's `tool.call` hook is an observer: it never returns `deny`, never rewrites `e`, and always returns what `next(e)` resolved to. Kit tests prove a result, a tool error and a refusal all pass through unchanged. It deliberately has no `.catch`, so if it ever throws, the engine skips it and the call goes ahead (fail-open). Any other gating line, a `gating hook with .catch`, a second `tool.call` hook, or a hook that returns an object with a `deny` key fails `/verify`, which greps for it.
 

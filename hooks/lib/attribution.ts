@@ -103,9 +103,16 @@ const backendOfUrl = (url: string, targets: Targets): BackendId | null => {
   return port === undefined ? null : byPort(targets, port)
 }
 
+/** The server part of `mcp__<server>__<tool>`, lower-cased; undefined when there is no tool part. */
+const mcpServerOf = (tool: string): string | undefined => {
+  const rest = tool.slice('mcp__'.length)
+  const cut = rest.indexOf('__')
+  return cut <= 0 ? undefined : rest.slice(0, cut).toLowerCase()
+}
+
 /**
  * The backend an MCP tool belongs to: the one its server name mentions, else the only enabled
- * backend, else none.
+ * backend, else none. Called only for a server already found local.
  */
 export const backendOfMcpTool = (tool: string, targets: Targets): BackendId | null => {
   const server = tool.slice('mcp__'.length).split('__')[0] ?? ''
@@ -118,13 +125,14 @@ export const backendOfMcpTool = (tool: string, targets: Targets): BackendId | nu
 /**
  * FR-4.1b: a Bash command that runs `ollama run` / `lms chat`, or sends a network client to a
  * backend's loopback port (not one that only mentions it in quotes, comments or heredocs); WebFetch to
- * a backend URL; MCP tools matching `mcpPattern`. `input` is the tool call's arguments (`e` itself).
+ * a backend URL; MCP tools whose server name contains one of `mcpServerNames`. `input` is the tool
+ * call's arguments (`e` itself).
  */
 export const classifyToolCall = (
   tool: string,
   input: Readonly<Record<string, unknown>>,
   targets: Targets,
-  mcpPattern: RegExp,
+  mcpServerNames: readonly string[],
 ): BackendId | null => {
   if (tool === 'Bash') {
     const command = input['command']
@@ -134,8 +142,9 @@ export const classifyToolCall = (
     const url = input['url']
     return typeof url === 'string' ? backendOfUrl(url, targets) : null
   }
-  if (tool.startsWith('mcp__') && tool.length <= MAX_TOOL_NAME && mcpPattern.test(tool)) {
-    return backendOfMcpTool(tool, targets)
+  if (tool.startsWith('mcp__') && tool.length <= MAX_TOOL_NAME) {
+    const server = mcpServerOf(tool)
+    if (server !== undefined && mcpServerNames.some(w => server.includes(w))) return backendOfMcpTool(tool, targets)
   }
   return null
 }

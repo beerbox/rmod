@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { backendForModelStep, backendOfMcpTool, classifyToolCall, targetsOf } from '../../hooks/lib/attribution'
-import { DEFAULT_MCP_PATTERN, parseConfig } from '../../hooks/lib/config'
+import { DEFAULT_MCP_SERVER_NAMES, parseConfig } from '../../hooks/lib/config'
 import type { ModelInfo } from '../../types'
 
 const BOTH = targetsOf({ enableOllama: true, enableLmStudio: true, ollamaUrl: 'http://127.0.0.1:11434', lmstudioUrl: 'http://127.0.0.1:1234' })
-const MCP = new RegExp(DEFAULT_MCP_PATTERN)
+const MCP = DEFAULT_MCP_SERVER_NAMES.split(',')
 const bash = (command: string) => classifyToolCall('Bash', { command }, BOTH, MCP)
 const fetch = (url: string) => classifyToolCall('WebFetch', { url, prompt: 'x' }, BOTH, MCP)
 const m = (id: string): ModelInfo => ({ id, loaded: false })
@@ -98,7 +98,7 @@ describe('attribution', () => {
     expect(classifyToolCall('WebFetch', { url: 42 }, BOTH, MCP)).toBeNull()
   })
 
-  test('FR-4.1b the widened default MCP pattern matches server names with underscores and plugin prefixes', () => {
+  test('FR-4.1b the default server names match underscores, plugin prefixes and any letter case', () => {
     for (const [tool, backend] of [
       ['mcp__ollama__generate', 'ollama'],
       ['mcp__ollama_local__chat', 'ollama'],
@@ -129,8 +129,8 @@ describe('attribution', () => {
     }
   })
 
-  test('FR-4.1b a custom pattern without a backend name goes to the only enabled backend, else nowhere', () => {
-    const custom = /^mcp__mylocal__/
+  test('FR-4.1b a custom server name without a backend name goes to the only enabled backend, else nowhere', () => {
+    const custom = ['mylocal']
     expect(classifyToolCall('mcp__mylocal__chat', {}, BOTH, custom)).toBeNull()
     expect(classifyToolCall('mcp__mylocal__chat', {}, { lmstudio: 1234 }, custom)).toBe('lmstudio')
     expect(backendOfMcpTool('mcp__mylocal__chat', { ollama: 11434 })).toBe('ollama')
@@ -180,11 +180,19 @@ describe('attribution', () => {
     expect(backendForModelStep(undefined, 'llama3.2:3b', { lmstudio: 1234 }, inv)).toBeNull()
   })
 
-  test('FR-6.3 the widened default passes rmod\'s own pattern guard', () => {
-    const { config, warnings } = parseConfig({ localMcpToolPattern: DEFAULT_MCP_PATTERN }, undefined)
+  test('NFR-2 MCP server names are literal words: regex syntax in them is just text, never a pattern', () => {
+    // '(a|a)*' would backtrack as a regex; as a literal word it matches only a server named with those characters.
+    expect(classifyToolCall(`mcp__${'a'.repeat(120)}__x`, {}, BOTH, ['(a|a)*'])).toBeNull()
+    expect(classifyToolCall('mcp__x(a|a)*y__run', {}, { ollama: 11434 }, ['(a|a)*'])).toBe('ollama')
+    const { config, warnings } = parseConfig({ localMcpServerNames: '(a|a)*' }, undefined)
+    expect(warnings.length).toBe(1)
+    expect(config.mcpServerNames).toEqual(MCP)
+  })
+
+  test('FR-6.3 the default server names pass rmod\'s own validation', () => {
+    const { config, warnings } = parseConfig({ localMcpServerNames: DEFAULT_MCP_SERVER_NAMES }, undefined)
     expect(warnings).toEqual([])
-    expect(config.mcpPattern.source).toBe(DEFAULT_MCP_PATTERN)
-    expect(DEFAULT_MCP_PATTERN.length).toBeLessThanOrEqual(200)
+    expect(config.mcpServerNames).toEqual(MCP)
   })
 
   test('FR-4.1a Ollama names match with or without the implicit :latest tag', () => {

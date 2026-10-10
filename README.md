@@ -79,7 +79,7 @@ What counts as a **local request**:
 
 A command that only *mentions* one in quotes, a comment or a heredoc doesn't count, and rmod's own health checks never count.
 
-Settings (`/plugin` → rmod → configure, or `/config`): server URLs (loopback only), enable or disable each backend, poll interval (2–300 s), probe timeout (200–10000 ms), model refresh interval, the band's default visibility, the MCP name pattern, and an optional LM Studio API token (stored in the macOS Keychain). A bad URL or pattern falls back to the default with one log line. An out-of-range number is refused by Claude Code itself when it loads the mod.
+Settings (`/plugin` → rmod → configure, or `/config`): server URLs (loopback only), enable or disable each backend, poll interval (2–300 s), probe timeout (200–10000 ms), model refresh interval, the band's default visibility, the MCP server names that count as local (literal words, default `ollama,lmstudio,lm-studio,lm_studio`; narrow it if, say, an `ollama-docs` server isn't local), and an optional LM Studio API token (stored in the macOS Keychain). A bad URL or name list falls back to the default with one log line. An out-of-range number is refused by Claude Code itself when it loads the mod.
 
 ## Privacy and trust
 

@@ -14,7 +14,7 @@ const constant = name => {
 }
 
 const checks = [
-  ['localMcpToolPattern', constant('DEFAULT_MCP_PATTERN')],
+  ['localMcpServerNames', constant('DEFAULT_MCP_SERVER_NAMES')],
   ['lmstudioUrl', constant('DEFAULT_LMSTUDIO_URL')],
   ['ollamaUrl', ''],
 ]

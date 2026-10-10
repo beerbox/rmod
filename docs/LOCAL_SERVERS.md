@@ -30,4 +30,4 @@ Other native endpoints exist (`/api/v1/chat`, `/api/v1/models/load`, `/unload`, 
 
 ## Ports rmod uses to classify tool calls (FR-4.1b)
 
-Configured `ollamaUrl` and `lmstudioUrl` ports (defaults 11434 and 1234) on `127.0.0.1`, `localhost` or `[::1]`. CLI verbs: `ollama run`, `lms chat`. MCP name pattern: `localMcpToolPattern`.
+Configured `ollamaUrl` and `lmstudioUrl` ports (defaults 11434 and 1234) on `127.0.0.1`, `localhost` or `[::1]`. CLI verbs: `ollama run`, `lms chat`. MCP server names: `localMcpServerNames` (literal words matched in the server part of `mcp__<server>__<tool>`).

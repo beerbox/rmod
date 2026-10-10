@@ -4,6 +4,9 @@ All notable changes to rmod are documented here. Format: [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Changed
+- **Breaking (pre-0.1):** the `localMcpToolPattern` setting (a regular expression) is replaced by `localMcpServerNames` (literal comma-separated words). A saved pattern is ignored and the default applies.
+
 ### Added
 - Project guidance: CLAUDE.md, path-scoped rules, development skills (`/docs-check`, `/verify`, `/implement-milestone`, `/probe-local-servers`, `/security-review`, `/release`), `mod-reviewer` and `qa-tester` subagents, the spec, architecture, plan, testing, security and reference docs, the secret-scanning pre-commit hook, and `.gitignore`.
 - Dev tooling: `package.json` with TypeScript 7.0.2 pinned exactly (dev-only, no runtime deps), committed lockfile, and `tsconfig.json` per the 2.1.295 types header.
@@ -23,6 +26,7 @@ All notable changes to rmod are documented here. Format: [Keep a Changelog](http
 - `/rmod` pane (M7, FR-3.5, FR-3.6, FR-4.4, FR-5.3). It shows per backend the status with "checked N s ago", the stats table (requests model/tool, in flight, ok/failed, avg, p50, p95, last, TTFT, tok/s, last request age) and the model list: loaded `●` first, available `○`, unknown `◌`, size, parameters, quantization and VRAM, with session request counts, capped at 200 with `+N more`. Buttons: Refresh (r), Reset (z), Hide/Show band (h). The band choice is saved in `$.store` and outlives sessions and `/clear`. Long names are truncated in narrow panes. Where no pane can be drawn, `/rmod` answers with the status text.
 - Traceability (M8.1, NFR-6). Every FR and NFR ID maps to automated tests and/or a manual step in TESTING.md §6: 36 of 37 automated, NFR-4 manual and static. Six edge-case tests added: flapping, both down at start, hot reload keeps the counters, more than 200 models, LM Studio 500.
 - README: install for terminal and Desktop, commands, what counts as a local request, the privacy and trust statement (including the redirect limit and the `tool.call` validate line), and operational advice.
+- Security (M8.2 review). `localMcpToolPattern` (a user regex, which could be made to backtrack for seconds on every MCP call) is replaced by `localMcpServerNames`: literal comma-separated words, matched in linear time. Fault-injection tests (S19) show requests pass through unchanged with every clock call refused. The stats queue never drops an end, and `session.start` no longer waits on state writes, so a host whose writes hang can't hold up the session's start. Tests cover queue pressure (150 calls with every state write hanging) and a fetch that throws outright.
 
 ### Fixed
 - Docs and dev instructions point to the actual repo path (`/path/to/rmod`).

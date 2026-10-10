@@ -118,7 +118,7 @@ const toggleBand = ($: EngineInterface, ctx: Ctx): void => {
     } catch {
       $.ui.log('rmod: could not save the band setting')
     }
-  })
+  }).catch(() => {})
 }
 
 const MAX_PENDING_WRITES = 100
@@ -129,20 +129,48 @@ const WRITE_TIMEOUT_MS = 2000
  * started without awaiting, so no request waits on rmod. Each write is raced against a timer, so
  * one that never settles can't stall the queue. Failures are dropped: counting never affects a request.
  */
-const record = ($: EngineInterface, ctx: Ctx, backend: Backend, change: () => Promise<(s: Stats) => Stats>): void => {
-  if (ctx.pendingWrites >= MAX_PENDING_WRITES) return
+const record = (
+  $: EngineInterface,
+  ctx: Ctx,
+  backend: Backend,
+  change: () => Promise<(s: Stats) => Stats>,
+  optional = false,
+): boolean => {
+  // Only an optional write (a begin) may be dropped past the cap. An end or cancel always runs,
+  // and a dropped begin drops its end too (the caller checks the return value), so in-flight can't stick.
+  if (optional && ctx.pendingWrites >= MAX_PENDING_WRITES) return false
   ctx.pendingWrites += 1
   ctx.statsQueue = ctx.statsQueue
     .then(async () => {
       const apply = await change()
       const write =
         backend === 'ollama' ? update($, statsOllama, s => apply(asStats(s))) : update($, statsLmstudio, s => apply(asStats(s)))
-      await Promise.race([write, $.clock.sleep(WRITE_TIMEOUT_MS)])
+      const stop = new AbortController()
+      const timer = $.clock.sleep(WRITE_TIMEOUT_MS, { signal: stop.signal }).catch(() => {})
+      try {
+        await Promise.race([write, timer])
+      } finally {
+        stop.abort()
+      }
     })
     .catch(() => {})
     .finally(() => {
       ctx.pendingWrites -= 1
     })
+  return true
+}
+
+/** The end of a counted tool call: a refusal takes the begin back, anything else is a sample. */
+const recordToolEnd = ($: EngineInterface, ctx: Ctx, b: Backend, t0: Promise<number | undefined>, r: ToolCallResult | undefined): void => {
+  const at = stamp($)
+  const outcome = toolOutcome(r)
+  record($, ctx, b, async () => {
+    if (outcome === 'refused') return cancel
+    const [start, endAt] = await Promise.all([t0, at])
+    const s0 = start ?? 0
+    const sample = { kind: 'tool' as const, ok: outcome === 'ok', latencyMs: (endAt ?? s0) - s0, at: endAt ?? s0 }
+    return s => end(s, sample)
+  })
 }
 
 /** A clock read started now and awaited later (inside `record`), so the request never waits on it. */
@@ -206,8 +234,9 @@ const probe = async (
     (): ProbeOutcome => ({ kind: 'timeout' }),
   )
   ctx.inflight[backend] += 1
-  const request = $.http
-    .fetch(url, headers === undefined ? undefined : { headers })
+  // Through a then, so even a synchronous throw from fetch lands in `.finally` and frees the slot.
+  const request = Promise.resolve()
+    .then(() => $.http.fetch(url, headers === undefined ? undefined : { headers }))
     .then(
       async (r): Promise<ProbeOutcome> => ({ kind: 'response', status: r.status, text: r.text, ms: (await $.clock.now()) - t0 }),
       (err: unknown): ProbeOutcome => ({ kind: 'rejected', message: err instanceof Error ? err.message : String(err) }),
@@ -273,6 +302,8 @@ const probeLmStudio = async ($: EngineInterface, ctx: Ctx): Promise<void> => {
 
 /** Probes one backend unless its previous probe is still pending. rmod's own failures never escape. */
 const runProbe = async ($: EngineInterface, ctx: Ctx, backend: Backend): Promise<void> => {
+  // NFR-3: one open request per backend. A fetch that never settles (it can't be cancelled) holds
+  // the backend at "no answer in time" until it does, or until the mod reloads.
   if (ctx.pending[backend] || ctx.inflight[backend] > 0) return
   ctx.pending[backend] = true
   try {
@@ -328,12 +359,10 @@ const startPolling = async ($: EngineInterface, ctx: Ctx): Promise<void> => {
   } catch {
     $.ui.log('rmod: could not start polling')
   }
-  try {
-    await update($, ollamaStatus, s => onOff(s, ctx.config.enableOllama))
-    await update($, lmstudioStatus, s => onOff(s, ctx.config.enableLmStudio))
-  } catch {
-    // The next probe writes the state anyway.
-  }
+  // Not awaited: session.start must never wait on bookkeeping (a host whose state writes hang
+  // would hold the session's start). On/off is applied at read time anyway, so this only tidies state.
+  void update($, ollamaStatus, s => onOff(s, ctx.config.enableOllama)).catch(() => {})
+  void update($, lmstudioStatus, s => onOff(s, ctx.config.enableLmStudio)).catch(() => {})
 }
 
 /** The /rmod-status text (FR-3.7), also the answer to /rmod-refresh. */
@@ -466,7 +495,7 @@ export const register: Register = (on, options) => {
     let done = false
     // Once only: from finally, or from the dispatch's abort if the stream is abandoned (FR-4.3).
     const finish = () => {
-      if (done) return
+      if (done || !counted) return
       done = true
       const at = stamp($)
       const r = result
@@ -486,7 +515,7 @@ export const register: Register = (on, options) => {
         return s => end(s, sample)
       })
     }
-    record($, ctx, b, async () => begin)
+    const counted = record($, ctx, b, async () => begin, true)
     try {
       next.signal.addEventListener('abort', finish, { once: true })
     } catch {
@@ -515,28 +544,20 @@ export const register: Register = (on, options) => {
     try {
       const input = e as unknown as Readonly<Record<string, unknown>>
       const tool = String(e.tool)
-      if (!isBackgroundBash(tool, input)) backend = classifyToolCall(tool, input, targetsOf(ctx.config), ctx.config.mcpPattern)
+      if (!isBackgroundBash(tool, input)) backend = classifyToolCall(tool, input, targetsOf(ctx.config), ctx.config.mcpServerNames)
     } catch {
       backend = null
     }
     if (backend === null) return next(e)
     const b = backend
     const t0 = stamp($)
-    record($, ctx, b, async () => begin)
+    const counted = record($, ctx, b, async () => begin, true)
     let r: ToolCallResult | undefined
     try {
       r = await next(e)
       return r
     } finally {
-      const at = stamp($)
-      const outcome = toolOutcome(r)
-      record($, ctx, b, async () => {
-        if (outcome === 'refused') return cancel
-        const [start, endAt] = await Promise.all([t0, at])
-        const s0 = start ?? 0
-        const sample = { kind: 'tool' as const, ok: outcome === 'ok', latencyMs: (endAt ?? s0) - s0, at: endAt ?? s0 }
-        return s => end(s, sample)
-      })
+      if (counted) recordToolEnd($, ctx, b, t0, r)
     }
   })
 
@@ -604,7 +625,12 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'rmod-reset' }, async $ => {
     try {
       resetCounters($, ctx)
-      await Promise.race([ctx.statsQueue, $.clock.sleep(1000)])
+      const stop = new AbortController()
+      try {
+        await Promise.race([ctx.statsQueue, $.clock.sleep(1000, { signal: stop.signal }).catch(() => {})])
+      } finally {
+        stop.abort()
+      }
       return { text: 'rmod: local request counters reset' }
     } catch {
       return { text: 'rmod: reset failed' }

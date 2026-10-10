@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { DEFAULT_MCP_PATTERN, parseConfig } from '../../hooks/lib/config'
+import { DEFAULT_MCP_SERVER_NAMES, parseConfig } from '../../hooks/lib/config'
 
 // What the loader hands register() when nothing is configured: the manifest's defaults.
 const MANIFEST_DEFAULTS = {
@@ -12,7 +12,7 @@ const MANIFEST_DEFAULTS = {
   probeTimeoutMs: 1500,
   modelsRefreshSec: 30,
   showBand: true,
-  localMcpToolPattern: DEFAULT_MCP_PATTERN,
+  localMcpServerNames: DEFAULT_MCP_SERVER_NAMES,
 } as const
 
 const FAKE_TOKEN = 'fake-test-token-not-real-0000'
@@ -34,7 +34,7 @@ describe('config', () => {
       probeTimeoutMs: 1500,
       modelsRefreshMs: 30000,
     })
-    expect(config.mcpPattern.source).toBe(DEFAULT_MCP_PATTERN)
+    expect(config.mcpServerNames).toEqual(['ollama', 'lmstudio', 'lm-studio', 'lm_studio'])
   })
 
   test('FR-6.2 an empty options object also falls back to defaults silently', () => {
@@ -55,7 +55,7 @@ describe('config', () => {
         probeTimeoutMs: 10000,
         modelsRefreshSec: 3600,
         showBand: false,
-        localMcpToolPattern: '^mcp__mylocal__',
+        localMcpServerNames: ' MyLocal , ollama ',
       },
       undefined,
     )
@@ -70,7 +70,7 @@ describe('config', () => {
       modelsRefreshMs: 3600000,
       showBand: false,
     })
-    expect(config.mcpPattern.test('mcp__mylocal__chat')).toBe(true)
+    expect(config.mcpServerNames).toEqual(['mylocal', 'ollama'])
   })
 
   test('FR-1.1 empty ollamaUrl uses a loopback OLLAMA_HOST', () => {
@@ -129,21 +129,13 @@ describe('config', () => {
     expect(warnings.length).toBe(4)
   })
 
-  test('FR-6.3 a bad or oversized regex falls back to the default pattern', () => {
-    for (const bad of ['([unclosed', 'a'.repeat(201), '/^mcp__x__/g', '^mcp__(a+)+$', '^mcp__(x*){2,}', '^mcp__(\\w+)\\1', '^mcp__(?<s>a)\\k<s>']) {
-      const { config, warnings } = parseConfig({ ...MANIFEST_DEFAULTS, localMcpToolPattern: bad }, undefined)
-      expect(config.mcpPattern.source).toBe(DEFAULT_MCP_PATTERN)
+  test('FR-6.3 bad server-name lists fall back to the default with one warning', () => {
+    for (const bad of ['^mcp__(a|a)*$', 'ollama,lm studio', ',,,', Array.from({ length: 11 }, (_, i) => `w${i}`).join(','), 'x'.repeat(41)]) {
+      const { config, warnings } = parseConfig({ ...MANIFEST_DEFAULTS, localMcpServerNames: bad }, undefined)
+      expect(config.mcpServerNames).toEqual(DEFAULT_MCP_SERVER_NAMES.split(','))
       expect(warnings.length).toBe(1)
-      expect(warnings[0]).toMatch(/localMcpToolPattern/)
+      expect(warnings[0]).toMatch(/localMcpServerNames/)
     }
-  })
-
-  test('FR-6.3 the MCP pattern has no flags, so it keeps no lastIndex state', () => {
-    const { config } = parseConfig(MANIFEST_DEFAULTS, undefined)
-    expect(config.mcpPattern.flags).toBe('')
-    expect(config.mcpPattern.test('mcp__ollama__generate')).toBe(true)
-    expect(config.mcpPattern.test('mcp__ollama__generate')).toBe(true)
-    expect(config.mcpPattern.test('mcp__github__search')).toBe(false)
   })
 
   test('NFR-1 the token is returned apart from Config and never appears in config or warnings', () => {

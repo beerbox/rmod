@@ -65,7 +65,7 @@ export const paneTree = (els: Els, sections: readonly PaneSection[], bandHidden:
       </Box>
       {sections.map(sec => section(els, sec))}
       <Text> </Text>
-      <Text dimColor>● loaded · ○ available · ◌ loaded state unknown · ×N requests this session</Text>
+      <Text dimColor wrap="wrap">● loaded · ○ available · ◌ unknown · ×N used</Text>
     </Box>
   )
 }

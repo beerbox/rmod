@@ -167,7 +167,7 @@ test('FR-3.5 the buttons show their hotkeys and the markers have a legend (NFR-5
   expect((await ui.find({ key: 'refresh' }))?.props).toMatchObject({ plain: true, hotkey: 'r' })
   expect((await ui.find({ key: 'reset' }))?.props).toMatchObject({ plain: true, hotkey: 'z' })
   expect((await ui.find({ key: 'band' }))?.props).toMatchObject({ plain: true, hotkey: 'h' })
-  expect(await ui.find({ type: 'Text', text: /^● loaded · ○ available · ◌ loaded state unknown/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^● loaded · ○ available · ◌ unknown · ×N used$/ })).toBeDefined()
 })
 
 test('FR-3.5 "checked N s ago" keeps ageing while probes are skipped', async ($, on) => {

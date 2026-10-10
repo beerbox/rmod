@@ -10,19 +10,16 @@ import { guardBaseUrl, normalizeOllamaHost, portOf } from './url-guard'
 export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434'
 export const DEFAULT_LMSTUDIO_URL = 'http://127.0.0.1:1234'
 /**
- * An MCP tool whose server name (the part between `mcp__` and the next `__`) contains "ollama" or
- * "lm studio" (lmstudio, lm-studio, lm_studio) in any letter case. Server names may hold single
- * underscores (plugin servers are `mcp__plugin_<plugin>_<server>__<tool>`).
+ * Words that mark an MCP server as local when its name (the part between `mcp__` and the next `__`)
+ * contains one, in any letter case. Literal substrings, not a regular expression: matching costs
+ * linear time whatever the person configures, so a tool call can never be held up (NFR-2).
  */
-export const DEFAULT_MCP_PATTERN = '^mcp__(?:[A-Za-z0-9-]|_(?!_))*(?:[Oo][Ll][Ll][Aa][Mm][Aa]|[Ll][Mm][-_]?[Ss][Tt][Uu][Dd][Ii][Oo])(?:[A-Za-z0-9-]|_(?!_))*__'
+export const DEFAULT_MCP_SERVER_NAMES = 'ollama,lmstudio,lm-studio,lm_studio'
 
-const MAX_PATTERN_LENGTH = 200
 const MAX_TOKEN_LENGTH = 4096
-/**
- * Heuristic ReDoS guard for user patterns, which run on every MCP tool call (NFR-2):
- * a quantified group that itself holds a quantifier (`(a+)+`, `(x*){2,}`) or a backreference.
- */
-const RISKY_PATTERN = /\([^)]*[+*}][^)]*\)\s*[+*{]|\\[1-9]|\\k</
+const MAX_SERVER_NAMES = 10
+/** Letters, digits, `-` and `_`: what an MCP server name can hold. */
+const SERVER_WORD = /^[a-z0-9_-]{1,40}$/
 
 export type Config = {
   enableOllama: boolean
@@ -37,8 +34,8 @@ export type Config = {
   pollMs: number
   probeTimeoutMs: number
   modelsRefreshMs: number
-  /** Compiled without flags, so `test` keeps no lastIndex state. */
-  mcpPattern: RegExp
+  /** Lower-case words; an MCP server whose name contains one is local (FR-4.1b). */
+  mcpServerNames: readonly string[]
 }
 
 export type ParsedConfig = {
@@ -88,28 +85,20 @@ const urlField = (o: Options, key: string, fallback: string, warn: (m: string) =
   return { rejected: true }
 }
 
-const pattern = (o: Options, warn: (m: string) => void): RegExp => {
-  const fallback = new RegExp(DEFAULT_MCP_PATTERN)
-  const raw = str(o, 'localMcpToolPattern', warn)
+const serverNames = (o: Options, warn: (m: string) => void): readonly string[] => {
+  const fallback = DEFAULT_MCP_SERVER_NAMES.split(',')
+  const raw = str(o, 'localMcpServerNames', warn)
   if (raw === undefined) return fallback
-  const why =
-    raw.length > MAX_PATTERN_LENGTH
-      ? `longer than ${MAX_PATTERN_LENGTH} characters`
-      : /^\/.*\/[a-z]*$/.test(raw)
-        ? 'write it without slashes or flags'
-        : RISKY_PATTERN.test(raw)
-          ? 'nested quantifiers and backreferences are not allowed'
-          : undefined
-  if (why === undefined) {
-    try {
-      return new RegExp(raw)
-    } catch {
-      warn('rmod: localMcpToolPattern is not a valid regular expression; using the default')
-      return fallback
-    }
+  const words = raw
+    .toLowerCase()
+    .split(',')
+    .map(w => w.trim())
+    .filter(w => w !== '')
+  if (words.length === 0 || words.length > MAX_SERVER_NAMES || !words.every(w => SERVER_WORD.test(w))) {
+    warn(`rmod: localMcpServerNames must be up to ${MAX_SERVER_NAMES} comma-separated words of letters, digits, - or _; using the default`)
+    return fallback
   }
-  warn(`rmod: localMcpToolPattern rejected (${why}); using the default`)
-  return fallback
+  return words
 }
 
 const tokenOf = (o: Options, warn: (m: string) => void): string | undefined => {
@@ -176,7 +165,7 @@ export const parseConfig = (options: Options, ollamaHostEnv: string | undefined)
     pollMs: num(options, 'pollIntervalSec', 2, 300, 5, warn) * 1000,
     probeTimeoutMs: num(options, 'probeTimeoutMs', 200, 10000, 1500, warn),
     modelsRefreshMs: num(options, 'modelsRefreshSec', 10, 3600, 30, warn) * 1000,
-    mcpPattern: pattern(options, warn),
+    mcpServerNames: serverNames(options, warn),
   }
 
   let token = tokenOf(options, warn)

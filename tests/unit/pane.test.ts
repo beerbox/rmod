@@ -13,7 +13,8 @@ describe('pane', () => {
     st = end(begin(st), { kind: 'tool', ok: false, latencyMs: 30, at: 11_000 })
     st = begin(st)
     expect(statsLines(st, 23_000)).toEqual([
-      'requests 2 (1 model / 1 tool) · in flight 1 · 1 ok / 1 failed',
+      'requests 2 (1 model / 1 tool) · in flight 1',
+      '1 ok / 1 failed',
       'avg 2.0s · p50 2.0s · p95 2.0s · last 2.0s · TTFT 400ms · 50 tok/s',
       'last request 12 s ago',
     ])

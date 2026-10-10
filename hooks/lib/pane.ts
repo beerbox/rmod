@@ -36,7 +36,8 @@ const statusLine = (s: BackendStatus, now: number): string => {
 export const statsLines = (stats: Stats, now: number): string[] => {
   const sum = summarize(stats)
   if (sum.total === 0 && sum.inFlight === 0) return ['no local requests yet']
-  const lines = [`requests ${sum.total} (${sum.model} model / ${sum.tool} tool) · in flight ${sum.inFlight} · ${sum.ok} ok / ${sum.failed} failed`]
+  // ok/failed on a line of its own, so a narrow pane can't cut it off.
+  const lines = [`requests ${sum.total} (${sum.model} model / ${sum.tool} tool) · in flight ${sum.inFlight}`, `${sum.ok} ok / ${sum.failed} failed`]
   const speed = [
     sum.avgMs === undefined ? undefined : `avg ${formatMs(sum.avgMs)}`,
     sum.p50Ms === undefined ? undefined : `p50 ${formatMs(sum.p50Ms)}`,

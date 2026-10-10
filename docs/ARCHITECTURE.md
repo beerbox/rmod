@@ -112,6 +112,7 @@ Colours: green means up, red means down, yellow means auth/degraded, dim means u
 ## 6. Known constraints and decisions
 
 - `HttpResponse.text` arrives fully buffered by the host, with no size cap in the types. `parseJson` refuses bodies over 4 MB, which bounds the parse work but not the transfer.
+- A fetch that never settles holds its backend at "no answer in time" until it does or the mod reloads. NFR-3 allows one open request per backend, and `$.http.fetch` can't be cancelled.
 - `$.http.fetch` has **no timeout option**, so `Promise.race` it with `$.clock.sleep(timeoutMs)`. A late reply is ignored.
 - Static analysis (checked on 2.1.295) allows `$` only in functions declared at the top of the file that uses it, and allows `read`/`update` only on atoms *defined in that same file*. So every atom and every `$`-using function lives in `register.tsx`, and module state is passed as a `ctx` object. Render helpers in `hooks/ui/` get plain data, not atoms.
 - Static analysis forbids passing `$` to imported functions. Pure libs receive data, and `register.tsx` does the I/O. Small top-level helpers *in the same file* may take `$`, which validate reports as `(via fn)`.
