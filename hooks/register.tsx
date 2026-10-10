@@ -76,18 +76,30 @@ type Ctx = {
   bandQueue: Promise<void>
   /** FR-3.7: `claude -p` or the SDK: panes are "placed" there but nothing draws them. */
   headless: boolean
+  /** A refresh is scheduled or ran less than MIN_REFRESH_MS ago. */
+  refreshScheduled: boolean
 }
 
 const PANE_ID = 'rmod'
+/** The shortest gap between on-demand refreshes, the same floor as the poll interval (SECURITY.md §5). */
+const MIN_REFRESH_MS = 2000
 const STORE_BAND_HIDDEN = 'bandHidden'
 
 /** FR-5.1: re-read the inventories now, from a timer (the probes' sleeps must not run in a hook). */
 const requestRefresh = ($: EngineInterface, ctx: Ctx): void => {
   ctx.forceInventory = true
+  // NFR-3: at most one on-demand refresh per MIN_REFRESH_MS, however fast the key repeats.
+  if (ctx.refreshScheduled) return
+  ctx.refreshScheduled = true
   try {
-    $.clock.after(0, () => tick($, ctx))
+    $.clock.after(0, () => {
+      tick($, ctx)
+      $.clock.after(MIN_REFRESH_MS, () => {
+        ctx.refreshScheduled = false
+      })
+    })
   } catch {
-    // The next poll picks up the forced refresh.
+    ctx.refreshScheduled = false
   }
 }
 
@@ -402,6 +414,7 @@ export const register: Register = (on, options) => {
     bandHidden: false,
     bandQueue: Promise.resolve(),
     headless: false,
+    refreshScheduled: false,
   }
   try {
     const parsed = parseConfig(options, undefined)
@@ -526,13 +539,21 @@ export const register: Register = (on, options) => {
       // Closing early makes `result` reject: that's an interrupt, already counted below.
       stream.result.catch(() => {})
       for await (const chunk of stream) {
-        if (first === undefined && isFirstOutput(chunk)) first = stamp($)
+        try {
+          if (first === undefined && isFirstOutput(chunk)) first = stamp($)
+        } catch {
+          // No first-token time for this step.
+        }
         yield chunk
       }
       result = await stream.result
       return result
     } finally {
-      finish()
+      try {
+        finish()
+      } catch {
+        // Counting never affects the step.
+      }
     }
   })
 
@@ -557,7 +578,11 @@ export const register: Register = (on, options) => {
       r = await next(e)
       return r
     } finally {
-      if (counted) recordToolEnd($, ctx, b, t0, r)
+      try {
+        if (counted) recordToolEnd($, ctx, b, t0, r)
+      } catch {
+        // Counting never affects the call.
+      }
     }
   })
 

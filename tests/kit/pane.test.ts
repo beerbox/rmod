@@ -180,3 +180,19 @@ test('FR-3.5 "checked N s ago" keeps ageing while probes are skipped', async ($,
   await clock.advance(30_000)
   expect(await ui.find({ type: 'Text', text: /checked 2\d s ago$/ })).toBeDefined()
 })
+
+test('NFR-3 holding Refresh down sends at most one extra round of requests per 2 s', async ($, on) => {
+  const { clock, servers } = boot(on, { ollama: 'up', lmstudio: 'up' })
+  await $.session.start(START)
+  await clock.settle()
+  const before = servers.fetched.length
+  const ui = await $.ui.mount({ ...pane(), surface: 'terminal' })
+  for (let i = 0; i < 20; i += 1) await ui.press({ key: 'refresh' })
+  await clock.settle()
+  // One forced round: Ollama version + tags + ps, LM Studio models.
+  expect(servers.fetched.length - before).toBe(4)
+  await clock.advance(2000)
+  await ui.press({ key: 'refresh' })
+  await clock.settle()
+  expect(servers.fetched.length - before).toBeGreaterThan(4)
+})

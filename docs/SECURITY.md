@@ -42,7 +42,8 @@ Consequences and rules:
 1. **The token is safe**: a redirect can't carry it to another origin.
 2. **Residual risk (accepted by the user, 2026-10-10, for v0.1)**: a process listening on a backend's port could redirect rmod's probe to an internet host. That request carries no token, no user data and no body, only a plain GET. rmod can't detect or prevent it, because the API offers no control. Every response is validated as untrusted anyway.
 3. rmod still sends the token only after a token-less probe to `lmstudioUrl` answered 401/403 this session, so a server that never asks for it never sees it. The gate resets when LM Studio stops listening, because whatever binds the port next must ask again. It also resets when `$.state` is fresh after `/clear`, `/resume` or `/branch`. Known gap: if another process takes LM Studio's port within one poll interval, without rmod seeing it down in between, it gets the token on its first probe. Any local process could answer 401 anyway, so this is accepted.
-4. Rejections (`ECONNREFUSED`, `ENOTFOUND`, policy refusals) arrive as a rejected promise whose message includes the URL. rmod maps them to its own `ProbeError` kinds and never displays or stores the message.
+4. **Another mod in the chain** could hook the `http.fetch` event and read the `Authorization` header rmod sends to LM Studio. rmod can't prevent that. Install mods only from sources you trust (§6).
+5. Rejections (`ECONNREFUSED`, `ENOTFOUND`, policy refusals) arrive as a rejected promise whose message includes the URL. rmod maps them to its own `ProbeError` kinds and never displays or stores the message.
 
 ## 4. `$` call allowlist (compare with the output of `claude plugin validate .`)
 
